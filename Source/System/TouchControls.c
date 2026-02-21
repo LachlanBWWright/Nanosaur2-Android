@@ -439,7 +439,7 @@ static void DrawRectFilled(float x, float y, float w, float h,
     bridge_End();
 }
 
-// Draw a rectangle outline (as a line loop via two triangles outline)
+// Draw a rectangle outline (as a line loop)
 static void DrawRectOutline(float x, float y, float w, float h,
                              float r, float g, float b, float a) {
     bridge_Color4f(r, g, b, a);
@@ -474,13 +474,14 @@ void TouchControls_Draw(void) {
     GLboolean savedTex1      = bridge_IsEnabled(TCGL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
     GLboolean savedTex0      = bridge_IsEnabled(TCGL_TEXTURE_2D);
-    GLboolean savedLighting  = bridge_IsEnabled(TCGL_LIGHTING);
-    GLboolean savedFog       = bridge_IsEnabled(TCGL_FOG);
+    // Alpha test has no OGL_Support.c cache, so we must save/restore it ourselves.
     GLboolean savedAlphaTest = bridge_IsEnabled(TCGL_ALPHA_TEST);
     // For GLES-native states, query and save them before we change them:
     GLboolean savedDepthTest = glIsEnabled(GL_DEPTH_TEST);
     GLboolean savedCullFace  = glIsEnabled(GL_CULL_FACE);
-    GLboolean savedBlend     = glIsEnabled(GL_BLEND);
+    // NOTE: We do NOT save/restore LIGHTING, FOG, or BLEND.
+    //       OGL_Support.c's force-dirty in OGL_DrawScene handles their state caches,
+    //       ensuring correct re-evaluation on the next rendered frame.
 
     // Set up for 2D overlay drawing
     glDisable(GL_DEPTH_TEST);
@@ -607,7 +608,10 @@ void TouchControls_Draw(void) {
     // RESTORE saved GL state so the game's next frame is unaffected
     // --------------------------------------------------------
 
-    // Restore bridge-tracked states for each texture unit separately
+    // Restore bridge-tracked texture states for each texture unit separately.
+    // Lighting and fog are intentionally NOT restored here — OGL_Support.c's
+    // force-dirty (in OGL_DrawScene) ensures those state caches get re-evaluated
+    // correctly on the next frame without causing stale-enable inconsistencies.
     glActiveTexture(GL_TEXTURE1);
     if (savedTex1) bridge_Enable(TCGL_TEXTURE_2D);
     else           bridge_Disable(TCGL_TEXTURE_2D);
@@ -615,14 +619,24 @@ void TouchControls_Draw(void) {
     if (savedTex0) bridge_Enable(TCGL_TEXTURE_2D);
     else           bridge_Disable(TCGL_TEXTURE_2D);
 
-    if (savedLighting)  bridge_Enable(TCGL_LIGHTING);  else bridge_Disable(TCGL_LIGHTING);
-    if (savedFog)       bridge_Enable(TCGL_FOG);        else bridge_Disable(TCGL_FOG);
-    if (savedAlphaTest) bridge_Enable(TCGL_ALPHA_TEST); else bridge_Disable(TCGL_ALPHA_TEST);
+    // Restore alpha test (no OGL_Support.c cache, must restore manually).
+    if (savedAlphaTest)
+        bridge_Enable(TCGL_ALPHA_TEST);
+    else
+        bridge_Disable(TCGL_ALPHA_TEST);
 
-    // Restore real-GLES states
-    if (savedDepthTest) glEnable(GL_DEPTH_TEST);  else glDisable(GL_DEPTH_TEST);
-    if (savedCullFace)  glEnable(GL_CULL_FACE);   else glDisable(GL_CULL_FACE);
-    if (savedBlend)     glEnable(GL_BLEND);        else glDisable(GL_BLEND);
+    // Restore real-GLES states (depth test and cull face).
+    if (savedDepthTest)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (savedCullFace)
+        glEnable(GL_CULL_FACE);
+    else
+        glDisable(GL_CULL_FACE);
+    // Blend is explicitly disabled at end; OGL_Support.c's force-dirty will
+    // re-sync gMyState_Blend so OGL_EnableBlend works correctly next frame.
+    glDisable(GL_BLEND);
 }
 
 #endif // __ANDROID__

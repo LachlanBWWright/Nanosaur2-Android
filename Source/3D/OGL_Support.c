@@ -956,10 +956,11 @@ do_anaglyph:
 	TouchControls_Draw();
 	// Force-dirty OGL_Support state caches that TouchControls_Draw may have touched.
 	// glEnable/Disable bypass OGL_Support's state tracking, so we must mark
-	// these as unknown to ensure they are re-applied next frame.
-	gMyState_Blend = false;
-	gMyState_Texture2D = false;
-	gMyState_Fog = false;
+	// these as unknown to ensure they are re-applied correctly next frame.
+	gMyState_Blend    = false;    // blend was disabled; next OGL_EnableBlend will re-enable
+	gMyState_Texture2D = false;   // next OGL_EnableTexture2D will re-sync bridge state
+	gMyState_Fog      = false;    // fog was disabled; next OGL_EnableFog will re-enable
+	gMyState_Lighting = false;    // lighting was disabled; next OGL_EnableLighting will re-enable
 #endif
 
 	SDL_GL_SwapWindow(gSDLWindow);							// end render loop
