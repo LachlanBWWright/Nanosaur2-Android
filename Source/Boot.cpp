@@ -104,6 +104,9 @@ static void Boot(int argc, char** argv)
 #endif
 
 #ifdef __ANDROID__
+    // Force landscape orientation before SDL_Init so SDL doesn't override the manifest setting.
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+
     // Set HOME before Pomme::Init() — Pomme uses getenv("HOME") to locate prefs.
     // On Android HOME is not set by the OS; use internal storage.
     if (!getenv("HOME")) {

@@ -954,6 +954,12 @@ do_anaglyph:
 
 #ifdef __ANDROID__
 	TouchControls_Draw();
+	// Force-dirty OGL_Support state caches that TouchControls_Draw may have touched.
+	// glEnable/Disable bypass OGL_Support's state tracking, so we must mark
+	// these as unknown to ensure they are re-applied next frame.
+	gMyState_Blend = false;
+	gMyState_Texture2D = false;
+	gMyState_Fog = false;
 #endif
 
 	SDL_GL_SwapWindow(gSDLWindow);							// end render loop

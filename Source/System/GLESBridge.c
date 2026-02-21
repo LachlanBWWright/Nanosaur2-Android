@@ -1332,4 +1332,14 @@ GLboolean bridge_IsEnabled(GLenum cap) {
     }
 }
 
+// ============================================================
+// ENSURE SHADER IS BOUND (call before drawing overlay)
+// ============================================================
+
+void bridge_EnsureShaderBound(void) {
+    if (gShaderProgram) {
+        glUseProgram(gShaderProgram);
+    }
+}
+
 #endif // __ANDROID__

@@ -18,7 +18,7 @@
 
 // Joystick position: lower left
 #define JOYSTICK_CX_FRAC    0.13f
-#define JOYSTICK_CY_FRAC    0.75f
+#define JOYSTICK_CY_FRAC    0.80f
 
 // Action buttons: lower right (diamond layout)
 #define BTN_RIGHT_CX_FRAC   0.90f
@@ -44,11 +44,10 @@ static float gJoystickX = 0.0f, gJoystickY = 0.0f;  // -1..+1
 static SDL_FingerID gJoystickFingerID = 0;
 static bool  gJoystickActive = false;
 
-// Recenter button
-static float gRecenterBtnX, gRecenterBtnY, gRecenterBtnRadius;
-
-// Toggle control mode button
-static float gToggleBtnX, gToggleBtnY, gToggleBtnRadius;
+// Toggle control mode button (top-left, rectangular - clearly not a joystick)
+static float gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH;
+// Recenter button (top-left, rectangular - clearly not a joystick)
+static float gRecenterBtnX, gRecenterBtnY, gRecenterBtnW, gRecenterBtnH;
 
 // Action buttons
 #define MAX_TOUCH_BUTTONS 6
@@ -78,6 +77,10 @@ static bool  gGyroAvailable = false;
 static float Distance2D(float ax, float ay, float bx, float by) {
     float dx = ax-bx, dy = ay-by;
     return sqrtf(dx*dx + dy*dy);
+}
+
+static bool PointInRect(float px, float py, float rx, float ry, float rw, float rh) {
+    return px >= rx && px <= rx+rw && py >= ry && py <= ry+rh;
 }
 
 // ============================================================
@@ -133,15 +136,17 @@ void TouchControls_Init(void) {
     gPauseBtnX = fw * 0.95f;
     gPauseBtnY = fh * 0.07f;
 
-    // Recenter button (near joystick, above)
-    gRecenterBtnRadius = fh * 0.04f;
-    gRecenterBtnX = gJoystickCX + gJoystickRadius + gRecenterBtnRadius * 2.0f;
-    gRecenterBtnY = gJoystickCY - gJoystickRadius;
+    // Toggle control mode button: top-left rectangular button  (NOT a circle, so it can't be confused with the joystick)
+    gToggleBtnW = fh * 0.10f;
+    gToggleBtnH = fh * 0.06f;
+    gToggleBtnX = fw * 0.02f;
+    gToggleBtnY = fh * 0.02f;
 
-    // Toggle control mode button (near recenter)
-    gToggleBtnRadius = fh * 0.04f;
-    gToggleBtnX = gRecenterBtnX + gToggleBtnRadius * 2.5f;
-    gToggleBtnY = gRecenterBtnY;
+    // Recenter button: top-left, just to the right of the toggle button
+    gRecenterBtnW = fh * 0.09f;
+    gRecenterBtnH = fh * 0.06f;
+    gRecenterBtnX = gToggleBtnX + gToggleBtnW + fw * 0.01f;
+    gRecenterBtnY = gToggleBtnY;
 
     // Check if gyroscope is available
     {
@@ -210,15 +215,15 @@ void TouchControls_ProcessFingerDown(SDL_FingerID fingerID, float fx, float fy) 
         return;
     }
 
-    // Recenter button
-    if (Distance2D(px, py, gRecenterBtnX, gRecenterBtnY) < gRecenterBtnRadius * 1.5f) {
-        TouchControls_Recenter();
+    // Toggle button (rectangular)
+    if (PointInRect(px, py, gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH)) {
+        TouchControls_ToggleMode();
         return;
     }
 
-    // Toggle button
-    if (Distance2D(px, py, gToggleBtnX, gToggleBtnY) < gToggleBtnRadius * 1.5f) {
-        TouchControls_ToggleMode();
+    // Recenter button (rectangular)
+    if (PointInRect(px, py, gRecenterBtnX, gRecenterBtnY, gRecenterBtnW, gRecenterBtnH)) {
+        TouchControls_Recenter();
         return;
     }
 
@@ -383,12 +388,19 @@ extern void bridge_LoadIdentity(void);
 extern void bridge_Ortho(double l, double r, double b, double t, double n, double f);
 extern void bridge_Enable(GLenum cap);
 extern void bridge_Disable(GLenum cap);
+extern GLboolean bridge_IsEnabled(GLenum cap);
 
 #define BRIDGE_GL_TRIANGLE_FAN 0x0006
 #define BRIDGE_GL_LINE_LOOP    0x0003
 #define BRIDGE_GL_TRIANGLES    0x0004
 
 #define PI_F 3.14159265358979f
+
+// GL state constants (from gles_compat.h macros which are active in this file)
+#define TCGL_TEXTURE_2D    0x0DE1
+#define TCGL_LIGHTING      0x0B50
+#define TCGL_FOG           0x0B60
+#define TCGL_ALPHA_TEST    0x0BC0
 
 static void DrawCircleFilled(float cx, float cy, float radius, int segments,
                               float r, float g, float b, float a) {
@@ -413,10 +425,30 @@ static void DrawCircleOutline(float cx, float cy, float radius, int segments,
     bridge_End();
 }
 
-static void DrawLetter(float cx, float cy, float size, const char *letter) {
-    // Simple placeholder - just draw a small indicator dot
-    (void)letter;
-    DrawCircleFilled(cx, cy, size * 0.3f, 8, 0.9f, 0.9f, 0.9f, 0.6f);
+// Draw a filled rectangle (as two triangles)
+static void DrawRectFilled(float x, float y, float w, float h,
+                            float r, float g, float b, float a) {
+    bridge_Color4f(r, g, b, a);
+    bridge_Begin(BRIDGE_GL_TRIANGLES);
+    bridge_Vertex2f(x,   y);
+    bridge_Vertex2f(x+w, y);
+    bridge_Vertex2f(x+w, y+h);
+    bridge_Vertex2f(x,   y);
+    bridge_Vertex2f(x+w, y+h);
+    bridge_Vertex2f(x,   y+h);
+    bridge_End();
+}
+
+// Draw a rectangle outline (as a line loop via two triangles outline)
+static void DrawRectOutline(float x, float y, float w, float h,
+                             float r, float g, float b, float a) {
+    bridge_Color4f(r, g, b, a);
+    bridge_Begin(BRIDGE_GL_LINE_LOOP);
+    bridge_Vertex2f(x,   y);
+    bridge_Vertex2f(x+w, y);
+    bridge_Vertex2f(x+w, y+h);
+    bridge_Vertex2f(x,   y+h);
+    bridge_End();
 }
 
 void TouchControls_Draw(void) {
@@ -426,20 +458,43 @@ void TouchControls_Draw(void) {
     extern SDL_Window* gSDLWindow;
     SDL_GetWindowSize(gSDLWindow, &w, &h);
 
-    // Save GL state and set up 2D ortho projection
+    // --------------------------------------------------------
+    // SAVE current bridge GL state before we modify it.
+    // bridge_IsEnabled is used for bridge-tracked states;
+    // glIsEnabled delegates to the real GLES for GLES-native states.
+    // --------------------------------------------------------
+    bridge_EnsureShaderBound();  // ensure bridge shader program is active before uniform uploads
+
+    // Reset viewport to full window so the overlay covers the whole screen,
+    // not just the last split-screen pane that was active.
+    glViewport(0, 0, w, h);
+
+    // Save state for texture unit 1 first, then unit 0 (order matters for bridge tracking)
+    glActiveTexture(GL_TEXTURE1);
+    GLboolean savedTex1      = bridge_IsEnabled(TCGL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0);
+    GLboolean savedTex0      = bridge_IsEnabled(TCGL_TEXTURE_2D);
+    GLboolean savedLighting  = bridge_IsEnabled(TCGL_LIGHTING);
+    GLboolean savedFog       = bridge_IsEnabled(TCGL_FOG);
+    GLboolean savedAlphaTest = bridge_IsEnabled(TCGL_ALPHA_TEST);
+    // For GLES-native states, query and save them before we change them:
+    GLboolean savedDepthTest = glIsEnabled(GL_DEPTH_TEST);
+    GLboolean savedCullFace  = glIsEnabled(GL_CULL_FACE);
+    GLboolean savedBlend     = glIsEnabled(GL_BLEND);
+
+    // Set up for 2D overlay drawing
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // Disable 3D effects that would corrupt flat 2D drawing.
-    // Explicitly switch to both texture units to clear them.
-    glDisable(GL_LIGHTING);
-    glDisable(GL_FOG);
-    glDisable(GL_ALPHA_TEST);
+    // Disable 3D effects - explicitly clear both texture units
+    bridge_Disable(TCGL_LIGHTING);
+    bridge_Disable(TCGL_FOG);
+    bridge_Disable(TCGL_ALPHA_TEST);
     glActiveTexture(GL_TEXTURE1);
-    glDisable(GL_TEXTURE_2D);
+    bridge_Disable(TCGL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
-    glDisable(GL_TEXTURE_2D);
+    bridge_Disable(TCGL_TEXTURE_2D);
 
     bridge_MatrixMode(0x1701); // GL_PROJECTION
     bridge_LoadIdentity();
@@ -447,67 +502,127 @@ void TouchControls_Draw(void) {
     bridge_MatrixMode(0x1700); // GL_MODELVIEW
     bridge_LoadIdentity();
 
+    // --------------------------------------------------------
+    // DRAW CONTROLS
+    // --------------------------------------------------------
+
     // Draw joystick (if in joystick mode)
     if (gControlMode == CONTROL_MODE_JOYSTICK) {
         // Base circle
         DrawCircleFilled(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
-                         0.3f, 0.3f, 0.3f, 0.15f);
+                         0.3f, 0.3f, 0.3f, 0.18f);
         DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
-                          0.7f, 0.7f, 0.7f, 0.35f);
+                          0.8f, 0.8f, 0.8f, 0.45f);
 
         // Thumb indicator
         float thumbX = gJoystickCX + gJoystickX * gJoystickRadius * 0.7f;
         float thumbY = gJoystickCY + gJoystickY * gJoystickRadius * 0.7f;
         DrawCircleFilled(thumbX, thumbY, gJoystickThumbRadius, 16,
-                         0.6f, 0.6f, 0.6f, 0.5f);
+                         0.7f, 0.7f, 0.7f, 0.6f);
         DrawCircleOutline(thumbX, thumbY, gJoystickThumbRadius, 16,
-                          0.9f, 0.9f, 0.9f, 0.6f);
+                          1.0f, 1.0f, 1.0f, 0.7f);
     } else {
-        // Gyro mode indicator
-        DrawCircleFilled(gJoystickCX, gJoystickCY, gJoystickRadius * 0.5f, 32,
-                         0.2f, 0.4f, 0.8f, 0.25f);
-        DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius * 0.5f, 32,
-                          0.4f, 0.6f, 1.0f, 0.5f);
+        // Gyro mode: show a gyro symbol (concentric arcs approximated as small circles)
+        DrawCircleFilled(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
+                         0.1f, 0.2f, 0.5f, 0.18f);
+        DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
+                          0.4f, 0.6f, 1.0f, 0.55f);
+        // Inner indicator dot showing tilt
+        float gx = gJoystickCX + gGyroX * gJoystickRadius * 0.7f;
+        float gy = gJoystickCY + gGyroY * gJoystickRadius * 0.7f;
+        DrawCircleFilled(gx, gy, gJoystickThumbRadius, 16,
+                         0.4f, 0.6f, 1.0f, 0.65f);
     }
 
-    // Draw recenter button
-    DrawCircleFilled(gRecenterBtnX, gRecenterBtnY, gRecenterBtnRadius, 16,
-                     0.2f, 0.6f, 0.2f, 0.35f);
-    DrawCircleOutline(gRecenterBtnX, gRecenterBtnY, gRecenterBtnRadius, 16,
-                      0.4f, 0.9f, 0.4f, 0.6f);
-
-    // Draw toggle button
-    float tR = (gControlMode == CONTROL_MODE_GYROSCOPE) ? 0.2f : 0.5f;
-    float tG = (gControlMode == CONTROL_MODE_GYROSCOPE) ? 0.4f : 0.3f;
-    float tB = (gControlMode == CONTROL_MODE_GYROSCOPE) ? 0.8f : 0.3f;
-    DrawCircleFilled(gToggleBtnX, gToggleBtnY, gToggleBtnRadius, 16,
-                     tR, tG, tB, 0.35f);
-    DrawCircleOutline(gToggleBtnX, gToggleBtnY, gToggleBtnRadius, 16,
-                      tR*1.5f, tG*1.5f, tB*1.5f, 0.6f);
-
-    // Draw action buttons
+    // Draw action buttons (diamond layout, lower right)
     for (int i = 0; i < gNumButtons; i++) {
-        float pr = gButtons[i].pressed ? 0.8f : 0.3f;
-        float pg = gButtons[i].pressed ? 0.3f : 0.3f;
-        float pb = gButtons[i].pressed ? 0.3f : 0.3f;
-        float pa = gButtons[i].pressed ? 0.55f : 0.25f;
-
+        float pr, pg, pb, pa;
+        if (gButtons[i].pressed) {
+            pr = 0.9f; pg = 0.5f; pb = 0.1f; pa = 0.70f;
+        } else {
+            pr = 0.2f; pg = 0.2f; pb = 0.4f; pa = 0.30f;
+        }
         DrawCircleFilled(gButtons[i].cx, gButtons[i].cy, gButtons[i].radius, 16,
                          pr, pg, pb, pa);
         DrawCircleOutline(gButtons[i].cx, gButtons[i].cy, gButtons[i].radius, 16,
-                          0.8f, 0.8f, 0.8f, 0.5f);
-        DrawLetter(gButtons[i].cx, gButtons[i].cy, gButtons[i].radius, gButtons[i].label);
+                          0.9f, 0.9f, 0.9f, 0.6f);
     }
 
-    // Draw pause button
+    // Draw pause button (top right, circle)
     DrawCircleFilled(gPauseBtnX, gPauseBtnY, gPauseBtnRadius, 16,
-                     0.2f, 0.2f, 0.2f, 0.3f);
+                     0.15f, 0.15f, 0.15f, 0.4f);
     DrawCircleOutline(gPauseBtnX, gPauseBtnY, gPauseBtnRadius, 16,
-                      0.7f, 0.7f, 0.7f, 0.5f);
+                      0.8f, 0.8f, 0.8f, 0.6f);
+    // Pause icon: two vertical bars
+    {
+        float bw = gPauseBtnRadius * 0.22f;
+        float bh = gPauseBtnRadius * 0.65f;
+        float gap = gPauseBtnRadius * 0.15f;
+        DrawRectFilled(gPauseBtnX - gap - bw, gPauseBtnY - bh*0.5f, bw, bh,
+                       0.9f, 0.9f, 0.9f, 0.8f);
+        DrawRectFilled(gPauseBtnX + gap, gPauseBtnY - bh*0.5f, bw, bh,
+                       0.9f, 0.9f, 0.9f, 0.8f);
+    }
 
-    // Restore GL state
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
+    // Draw RECTANGULAR toggle mode button (top-left) - clearly NOT a joystick
+    {
+        float tR, tG, tB;
+        if (gControlMode == CONTROL_MODE_GYROSCOPE) {
+            tR=0.15f; tG=0.25f; tB=0.60f;
+        } else {
+            tR=0.15f; tG=0.35f; tB=0.15f;
+        }
+        DrawRectFilled(gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH,
+                       tR, tG, tB, 0.50f);
+        DrawRectOutline(gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH,
+                        tR*2.5f+0.2f, tG*2.5f+0.2f, tB*2.5f+0.2f, 0.75f);
+        // Small icon inside: circle for gyro, cross for joystick
+        float icx = gToggleBtnX + gToggleBtnW * 0.5f;
+        float icy = gToggleBtnY + gToggleBtnH * 0.5f;
+        float icr = gToggleBtnH * 0.28f;
+        if (gControlMode == CONTROL_MODE_GYROSCOPE) {
+            DrawCircleOutline(icx, icy, icr, 12, 0.6f, 0.8f, 1.0f, 0.9f);
+        } else {
+            DrawCircleOutline(icx, icy, icr, 12, 0.4f, 0.9f, 0.4f, 0.9f);
+            // Center dot
+            DrawCircleFilled(icx, icy, icr*0.35f, 8, 0.4f, 0.9f, 0.4f, 0.9f);
+        }
+    }
+
+    // Draw RECTANGULAR recenter button (top-left, next to toggle)
+    {
+        DrawRectFilled(gRecenterBtnX, gRecenterBtnY, gRecenterBtnW, gRecenterBtnH,
+                       0.35f, 0.12f, 0.12f, 0.50f);
+        DrawRectOutline(gRecenterBtnX, gRecenterBtnY, gRecenterBtnW, gRecenterBtnH,
+                        0.9f, 0.4f, 0.4f, 0.75f);
+        // Center/reset icon: small crosshair
+        float icx = gRecenterBtnX + gRecenterBtnW * 0.5f;
+        float icy = gRecenterBtnY + gRecenterBtnH * 0.5f;
+        float icr = gRecenterBtnH * 0.28f;
+        DrawCircleOutline(icx, icy, icr, 12, 0.9f, 0.5f, 0.5f, 0.9f);
+        DrawCircleFilled(icx, icy, icr*0.3f, 8, 0.9f, 0.5f, 0.5f, 0.9f);
+    }
+
+    // --------------------------------------------------------
+    // RESTORE saved GL state so the game's next frame is unaffected
+    // --------------------------------------------------------
+
+    // Restore bridge-tracked states for each texture unit separately
+    glActiveTexture(GL_TEXTURE1);
+    if (savedTex1) bridge_Enable(TCGL_TEXTURE_2D);
+    else           bridge_Disable(TCGL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0);
+    if (savedTex0) bridge_Enable(TCGL_TEXTURE_2D);
+    else           bridge_Disable(TCGL_TEXTURE_2D);
+
+    if (savedLighting)  bridge_Enable(TCGL_LIGHTING);  else bridge_Disable(TCGL_LIGHTING);
+    if (savedFog)       bridge_Enable(TCGL_FOG);        else bridge_Disable(TCGL_FOG);
+    if (savedAlphaTest) bridge_Enable(TCGL_ALPHA_TEST); else bridge_Disable(TCGL_ALPHA_TEST);
+
+    // Restore real-GLES states
+    if (savedDepthTest) glEnable(GL_DEPTH_TEST);  else glDisable(GL_DEPTH_TEST);
+    if (savedCullFace)  glEnable(GL_CULL_FACE);   else glDisable(GL_CULL_FACE);
+    if (savedBlend)     glEnable(GL_BLEND);        else glDisable(GL_BLEND);
 }
 
 #endif // __ANDROID__

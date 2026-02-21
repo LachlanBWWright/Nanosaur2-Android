@@ -244,6 +244,7 @@ void bridge_GetDoublev(GLenum pname, double *params);
 void bridge_ActiveTexture(GLenum texture);
 GLboolean bridge_IsEnabled(GLenum cap);
 void bridge_GetFloatv(GLenum pname, float *params);
+void bridge_EnsureShaderBound(void);
 void bridge_GetIntegerv(GLenum pname, int *params);
 
 #ifdef __cplusplus
