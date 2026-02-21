@@ -30,6 +30,16 @@ jobs:
         run: |
           sdkmanager --install "ndk;27.3.13750724" "cmake;3.22.1"
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        # NOTE: Must run BEFORE cloning SDL. SDL ships its own android-project with a
+        # gradle-wrapper.jar whose checksum isn't in the gradle/actions known-list.
+        # By running gradle setup first, validation only sees our known wrapper jar.
+
+      - name: Make gradlew executable
+        working-directory: android
+        run: chmod +x gradlew
+
       - name: Clone SDL3
         run: |
           git clone --depth 1 --branch main https://github.com/libsdl-org/SDL.git extern/SDL
@@ -39,13 +49,6 @@ jobs:
           mkdir -p android/app/src/main/java/org/libsdl/app
           cp extern/SDL/android-project/app/src/main/java/org/libsdl/app/*.java \
              android/app/src/main/java/org/libsdl/app/
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Make gradlew executable
-        working-directory: android
-        run: chmod +x gradlew
 
       - name: Build Debug APK
         working-directory: android

@@ -19,6 +19,16 @@ typedef double GLclampd;
 #ifndef GL_BGR
 #define GL_BGR   0x80E0
 #endif
+// Packed pixel formats not in GLES3
+#ifndef GL_UNSIGNED_INT_8_8_8_8_REV
+#define GL_UNSIGNED_INT_8_8_8_8_REV     0x8367
+#endif
+#ifndef GL_UNSIGNED_SHORT_1_5_5_5_REV
+#define GL_UNSIGNED_SHORT_1_5_5_5_REV   0x8366
+#endif
+#ifndef GL_UNSIGNED_SHORT_4_4_4_4_REV
+#define GL_UNSIGNED_SHORT_4_4_4_4_REV   0x8365
+#endif
 #ifndef GL_CLAMP
 #define GL_CLAMP GL_CLAMP_TO_EDGE
 #endif
@@ -64,9 +74,17 @@ typedef double GLclampd;
 #define GL_FOG_START       0x0B63
 #define GL_FOG_END         0x0B64
 #define GL_FOG_COLOR       0x0B66
+#define GL_FOG_HINT        0x0C54
 #define GL_LINEAR          0x2601
 #define GL_EXP             0x0800
 #define GL_EXP2            0x0801
+
+// Light model
+#define GL_LIGHT_MODEL_AMBIENT  0x0B53
+#define GL_LIGHT_MODEL_TWO_SIDE 0x0B52
+
+// Anisotropic filtering extension constant
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
 // Alpha test
 #define GL_ALPHA_TEST      0x0BC0
@@ -243,6 +261,10 @@ static inline void stub_DrawBuffer(GLenum buf) { (void)buf; }
 // Attribute stack
 static inline void stub_PushAttrib(GLbitfield mask) { (void)mask; }
 static inline void stub_PopAttrib(void) {}
+// Light model - no-op on Android (handled by bridge)
+static inline void stub_LightModelfv(GLenum pname, const float *params) { (void)pname; (void)params; }
+static inline void stub_LightModelf(GLenum pname, float param) { (void)pname; (void)param; }
+static inline void stub_LightModeli(GLenum pname, int param) { (void)pname; (void)param; }
 // Vertex array range (Apple extension)
 #define PFNGLVERTEXARRAYRANGEAPPLEPROC void*
 #define PFNGLFLUSHVERTEXARRAYRANGEAPPLEPROC void*
@@ -325,6 +347,10 @@ static inline void stub_RasterPos2f(float x, float y) { (void)x; (void)y; }
 #define glPopAttrib          stub_PopAttrib
 #define glFlushVertexArrayRangeAPPLE stub_FlushVertexArrayRangeAPPLE
 #define glRasterPos2f        stub_RasterPos2f
+#define glLightModelfv       stub_LightModelfv
+#define glLightModelf        stub_LightModelf
+#define glLightModeli        stub_LightModeli
+#define glHint(target, mode) ((void)0)
 
 // Ensure GL_TEXTURE_2D is defined (may have been overridden above)
 #ifndef GL_TEXTURE_2D

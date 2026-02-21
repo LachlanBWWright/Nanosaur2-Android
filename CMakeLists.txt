@@ -94,7 +94,12 @@ else()
 	endif()
 	message("Building SDL3 from source: " ${SDL3_DIR})
 	add_subdirectory("${SDL3_DIR}" "${CMAKE_BINARY_DIR}/SDL3_bin" EXCLUDE_FROM_ALL)
-	# Set SDL3_DIR so that submodule find_package(SDL3) calls can find it
+	# Update SDL3_DIR to the binary dir so that submodule find_package(SDL3) calls
+	# can find SDL3Config.cmake. We update BOTH the normal variable and the cache.
+	# Without updating the normal variable, cmake policy CMP0126 causes find_package
+	# in submodules to see the old source-tree value (e.g. extern/SDL) instead of
+	# the binary dir, resulting in "could not find SDL3Config.cmake".
+	set(SDL3_DIR "${CMAKE_BINARY_DIR}/SDL3_bin")
 	set(SDL3_DIR "${CMAKE_BINARY_DIR}/SDL3_bin" CACHE PATH "" FORCE)
 endif()
 
@@ -137,6 +142,11 @@ else()
 endif()
 
 target_include_directories(${GAME_TARGET} PRIVATE ${GAME_SRCDIR}/Headers)
+
+if(ANDROID)
+    # gles_compat.h is in Source/System, which is not in the default include path
+    target_include_directories(${GAME_TARGET} PRIVATE ${GAME_SRCDIR}/System)
+endif()
 
 if(ANDROID)
     # On Android, the library must be named "main" so SDL's Java layer can load it

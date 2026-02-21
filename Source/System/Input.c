@@ -561,7 +561,6 @@ float GetNeedAnalogSteering(int negativeNeedID, int positiveNeedID, int playerID
 
 	return result;
 }
-}
 
 Boolean UserWantsOut(void)
 {

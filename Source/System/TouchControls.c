@@ -150,7 +150,7 @@ void TouchControls_Init(void) {
         gGyroAvailable = false;
         if (sensorList) {
             for (int s = 0; s < sensorCount && !gGyroAvailable; s++) {
-                if (SDL_GetSensorType(sensorList[s]) == SDL_SENSOR_GYRO)
+                if (SDL_GetSensorTypeForID(sensorList[s]) == SDL_SENSOR_GYRO)
                     gGyroAvailable = true;
             }
             SDL_free(sensorList);
@@ -302,7 +302,7 @@ void TouchControls_UpdateGyro(void) {
     if (!sensors || count == 0) return;
 
     for (int i = 0; i < count; i++) {
-        if (SDL_GetSensorType(sensors[i]) == SDL_SENSOR_GYRO) {
+        if (SDL_GetSensorTypeForID(sensors[i]) == SDL_SENSOR_GYRO) {
             SDL_Sensor *sensor = SDL_OpenSensor(sensors[i]);
             if (sensor) {
                 float data[3] = {0};
