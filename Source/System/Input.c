@@ -204,6 +204,11 @@ static void UpdateInputNeeds(void)
 
 		pressed |= gMouseButtonStates[kb->mouseButton] & KEYSTATE_ACTIVE_BIT;
 
+#ifdef __ANDROID__
+		// Inject touch button states
+		pressed |= TouchControls_IsButtonPressed(need);
+#endif
+
 		UpdateKeyState(&gNeedStates[need], pressed);
 	}
 }
@@ -386,6 +391,11 @@ void DoSDLMaintenance(void)
 	// Refresh the state of each mouse button
 	UpdateMouseButtonStates(mouseWheelDeltaX, mouseWheelDeltaY);
 
+#ifdef __ANDROID__
+	// Update gyroscope state for gyro control mode
+	TouchControls_UpdateGyro();
+#endif
+
 	// Refresh the state of each input need
 	UpdateInputNeeds();
 
@@ -530,14 +540,27 @@ float GetNeedAnalogSteering(int negativeNeedID, int positiveNeedID, int playerID
 	float neg = GetNeedAnalogValue(negativeNeedID, playerID);
 	float pos = GetNeedAnalogValue(positiveNeedID, playerID);
 
+	float result;
 	if (neg > pos)
-	{
-		return -neg;
-	}
+		result = -neg;
 	else
-	{
-		return pos;
+		result = pos;
+
+#ifdef __ANDROID__
+	// Inject touch joystick / gyro steering
+	if (result == 0.0f) {
+		float jx = TouchControls_GetJoystickX();
+		float jy = TouchControls_GetJoystickY();
+		if (negativeNeedID == kNeed_YawLeft && positiveNeedID == kNeed_YawRight) {
+			if (jx != 0.0f) result = jx;
+		} else if (negativeNeedID == kNeed_PitchUp && positiveNeedID == kNeed_PitchDown) {
+			if (jy != 0.0f) result = jy;
+		}
 	}
+#endif
+
+	return result;
+}
 }
 
 Boolean UserWantsOut(void)

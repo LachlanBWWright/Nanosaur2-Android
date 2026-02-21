@@ -13,6 +13,11 @@
 #include "game.h"
 #include "uieffects.h"
 
+#ifdef __ANDROID__
+#include "touchcontrols.h"
+#include "androidassets.h"
+#endif
+
 /****************************/
 /*    PROTOTYPES            */
 /****************************/
@@ -1008,6 +1013,14 @@ unsigned long	someLong;
 
 #if !_DEBUG
 	SDL_HideCursor();
+#endif
+
+#ifdef __ANDROID__
+	// Extract APK assets to internal storage on first launch
+	AndroidExtractAssets();
+
+	// Initialize touch controls
+	TouchControls_Init();
 #endif
 
 	DoWarmUpScreen();

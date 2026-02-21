@@ -114,6 +114,20 @@ typedef double GLclampd;
 #define GL_OBJECT_LINEAR   0x2401
 #define GL_EYE_LINEAR      0x2400
 
+// Missing from GLES3: polygon mode, draw buffer, attrib stack
+#define GL_FRONT_AND_BACK  0x0408
+#define GL_FRONT           0x0404
+#define GL_BACK            0x0405
+#define GL_LINE            0x1B01
+#define GL_FILL            0x1B02
+#define GL_POINT           0x1B00
+#define GL_BACK_LEFT       0x0402
+#define GL_BACK_RIGHT      0x0403
+#define GL_ALL_ATTRIB_BITS 0xFFFFFFFF
+// GL_MODELVIEW_MATRIX, GL_PROJECTION_MATRIX
+#define GL_MODELVIEW_MATRIX  0x0BA6
+#define GL_PROJECTION_MATRIX 0x0BA7
+
 // Bridge function declarations
 #ifdef __cplusplus
 extern "C" {
@@ -182,6 +196,25 @@ void bridge_ActiveTexture(GLenum texture);
 #endif
 
 // ============================================================
+// NO-OP STUBS (inline, desktop-only functions not in GLES3)
+// ============================================================
+
+// glColorMaterial - no color material tracking needed (handled by state)
+static inline void stub_ColorMaterial(GLenum face, GLenum mode) { (void)face; (void)mode; }
+// glDrawBuffer - no stereo on Android
+static inline void stub_DrawBuffer(GLenum buf) { (void)buf; }
+// Attribute stack
+static inline void stub_PushAttrib(GLbitfield mask) { (void)mask; }
+static inline void stub_PopAttrib(void) {}
+// Vertex array range (Apple extension)
+#define PFNGLVERTEXARRAYRANGEAPPLEPROC void*
+#define PFNGLFLUSHVERTEXARRAYRANGEAPPLEPROC void*
+static inline void stub_FlushVertexArrayRangeAPPLE(GLsizei length, void *ptr) { (void)length; (void)ptr; }
+// Raster pos
+static inline void stub_RasterPos2f(float x, float y) { (void)x; (void)y; }
+// glColorMask macro already available in GLES3 directly
+
+// ============================================================
 // REDIRECTS
 // ============================================================
 
@@ -244,6 +277,14 @@ void bridge_ActiveTexture(GLenum texture);
 
 // glClientActiveTexture - for multitexture vertex arrays, map to ActiveTexture on Android
 #define glClientActiveTexture(t) bridge_ActiveTexture(t)
+
+// Additional no-op stubs for desktop-only features
+#define glColorMaterial      stub_ColorMaterial
+#define glDrawBuffer         stub_DrawBuffer
+#define glPushAttrib         stub_PushAttrib
+#define glPopAttrib          stub_PopAttrib
+#define glFlushVertexArrayRangeAPPLE stub_FlushVertexArrayRangeAPPLE
+#define glRasterPos2f        stub_RasterPos2f
 
 // Ensure GL_TEXTURE_2D is defined (may have been overridden above)
 #ifndef GL_TEXTURE_2D

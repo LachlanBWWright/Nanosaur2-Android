@@ -107,25 +107,25 @@ void TouchControls_Init(void) {
 
     gNumButtons = 0;
 
-    // Fire/shoot (right)
+    // Fire (right)
     gButtons[gNumButtons++] = (TouchButton){
         .cx=btnCX+btnSpacing, .cy=btnCY, .radius=btnR,
-        .gameNeed=kNeed_Shoot, .label="B"
+        .gameNeed=kNeed_Fire, .label="F"
     };
-    // Jump (top)
+    // Jetpack (top)
     gButtons[gNumButtons++] = (TouchButton){
         .cx=btnCX, .cy=btnCY-btnSpacing, .radius=btnR,
-        .gameNeed=kNeed_Jump, .label="A"
+        .gameNeed=kNeed_Jetpack, .label="J"
     };
     // Prev weapon (left)
     gButtons[gNumButtons++] = (TouchButton){
         .cx=btnCX-btnSpacing, .cy=btnCY, .radius=btnR,
-        .gameNeed=kNeed_PrevWeapon, .label="L"
+        .gameNeed=kNeed_PrevWeapon, .label="<"
     };
     // Next weapon (bottom)
     gButtons[gNumButtons++] = (TouchButton){
         .cx=btnCX, .cy=btnCY+btnSpacing, .radius=btnR,
-        .gameNeed=kNeed_NextWeapon, .label="R"
+        .gameNeed=kNeed_NextWeapon, .label=">"
     };
 
     // Pause button (top right)
