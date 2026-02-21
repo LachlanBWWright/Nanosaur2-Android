@@ -479,7 +479,10 @@ void bridge_Enable(GLenum cap) {
         case 0x4007: gLights[7].enabled = true; break;
         case 0x0BC0: gAlphaTestEnabled = true; break; // GL_ALPHA_TEST
         case 0x0B60: gFogEnabled = true; break;       // GL_FOG
-        case 0x0DE1: gTexture0Enabled = true; break;  // GL_TEXTURE_2D
+        case 0x0DE1: // GL_TEXTURE_2D
+            if (gActiveTexture == 0) gTexture0Enabled = true;
+            else gTexture1Enabled = true;
+            break;
         case 0x0C60: gTexGenEnabled = true; break;    // GL_TEXTURE_GEN_S
         case 0x0C61: gTexGenEnabled = true; break;    // GL_TEXTURE_GEN_T
         // Desktop-only caps not in GLES3 - silently ignore
@@ -508,7 +511,10 @@ void bridge_Disable(GLenum cap) {
         case 0x4007: gLights[7].enabled = false; break;
         case 0x0BC0: gAlphaTestEnabled = false; break;
         case 0x0B60: gFogEnabled = false; break;
-        case 0x0DE1: gTexture0Enabled = false; break;
+        case 0x0DE1: // GL_TEXTURE_2D
+            if (gActiveTexture == 0) gTexture0Enabled = false;
+            else gTexture1Enabled = false;
+            break;
         case 0x0C60: gTexGenEnabled = false; break;
         case 0x0C61: gTexGenEnabled = false; break;
         // Desktop-only caps not in GLES3 - silently ignore
@@ -1230,6 +1236,63 @@ void* GLES_ConvertTextureFormat(
         return dst;
     }
     return NULL;
+}
+
+// ============================================================
+// GETFLOATV / GETINTEGERV BRIDGE
+// ============================================================
+
+void bridge_GetFloatv(GLenum pname, float *params) {
+    switch (pname) {
+        case 0x0BA6: // GL_MODELVIEW_MATRIX
+            memcpy(params, gModelViewStack[gModelViewTop], 16*sizeof(float));
+            break;
+        case 0x0BA7: // GL_PROJECTION_MATRIX
+            memcpy(params, gProjectionStack[gProjectionTop], 16*sizeof(float));
+            break;
+        case 0x0BA8: // GL_TEXTURE_MATRIX
+            memcpy(params, gTextureStack[gTextureTop], 16*sizeof(float));
+            break;
+        default:
+            glGetFloatv(pname, params);
+            break;
+    }
+}
+
+void bridge_GetIntegerv(GLenum pname, int *params) {
+    switch (pname) {
+        case 0x0BA0: // GL_MATRIX_MODE
+            params[0] = gMatrixMode;
+            break;
+        default:
+            glGetIntegerv(pname, params);
+            break;
+    }
+}
+
+// ============================================================
+// ISENABLE BRIDGE - for bridge-tracked states
+// ============================================================
+
+GLboolean bridge_IsEnabled(GLenum cap) {
+    switch (cap) {
+        case 0x0B50: return gLightingEnabled ? GL_TRUE : GL_FALSE;   // GL_LIGHTING
+        case 0x0BC0: return gAlphaTestEnabled ? GL_TRUE : GL_FALSE;  // GL_ALPHA_TEST
+        case 0x0B60: return gFogEnabled ? GL_TRUE : GL_FALSE;        // GL_FOG
+        case 0x0DE1: return gTexture0Enabled ? GL_TRUE : GL_FALSE;   // GL_TEXTURE_2D
+        case 0x0C60:
+        case 0x0C61: return gTexGenEnabled ? GL_TRUE : GL_FALSE;     // GL_TEXTURE_GEN_S/T
+        // Desktop-only caps not in GLES3: return false without causing GL error
+        case 0x0BA1: return GL_FALSE;  // GL_NORMALIZE
+        case 0x803A: return GL_FALSE;  // GL_RESCALE_NORMAL
+        case 0x0B57: return GL_FALSE;  // GL_COLOR_MATERIAL
+        case 0x0B20: return GL_FALSE;  // GL_LINE_SMOOTH
+        case 0x0B24: return GL_FALSE;  // GL_LINE_STIPPLE
+        case 0x0BF2: return GL_FALSE;  // GL_COLOR_LOGIC_OP
+        case 0x0DE0: return GL_FALSE;  // GL_TEXTURE_1D
+        // GLES3-supported caps - delegate to GL
+        default: return glIsEnabled(cap);
+    }
 }
 
 #endif // __ANDROID__

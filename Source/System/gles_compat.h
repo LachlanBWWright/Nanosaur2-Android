@@ -140,6 +140,7 @@ typedef double GLclampd;
 // GL_MODELVIEW_MATRIX, GL_PROJECTION_MATRIX
 #define GL_MODELVIEW_MATRIX  0x0BA6
 #define GL_PROJECTION_MATRIX 0x0BA7
+#define GL_MATRIX_MODE       0x0BA0
 
 // Fixed-function enables not in GLES3 (handled as no-ops in bridge)
 #define GL_COLOR_LOGIC_OP          0x0BF2
@@ -152,6 +153,14 @@ typedef double GLclampd;
 // Missing GL error codes in GLES3
 #define GL_STACK_OVERFLOW          0x0503
 #define GL_STACK_UNDERFLOW         0x0504
+
+// ARB texture unit aliases (GLES3 uses same values as GL_TEXTURE0 etc.)
+#ifndef GL_TEXTURE0_ARB
+#define GL_TEXTURE0_ARB            0x84C0  // same as GL_TEXTURE0 in GLES3
+#endif
+#ifndef GL_TEXTURE1_ARB
+#define GL_TEXTURE1_ARB            0x84C1
+#endif
 
 // Bridge function declarations
 #ifdef __cplusplus
@@ -215,6 +224,9 @@ void bridge_DeleteLists(unsigned int list, int range);
 void bridge_PolygonMode(GLenum face, GLenum mode);
 void bridge_GetDoublev(GLenum pname, double *params);
 void bridge_ActiveTexture(GLenum texture);
+GLboolean bridge_IsEnabled(GLenum cap);
+void bridge_GetFloatv(GLenum pname, float *params);
+void bridge_GetIntegerv(GLenum pname, int *params);
 
 #ifdef __cplusplus
 }
@@ -299,6 +311,9 @@ static inline void stub_RasterPos2f(float x, float y) { (void)x; (void)y; }
 #define glPolygonMode       bridge_PolygonMode
 #define glGetDoublev        bridge_GetDoublev
 #define glActiveTexture     bridge_ActiveTexture
+#define glIsEnabled         bridge_IsEnabled
+#define glGetFloatv         bridge_GetFloatv
+#define glGetIntegerv       bridge_GetIntegerv
 
 // glClientActiveTexture - for multitexture vertex arrays, map to ActiveTexture on Android
 #define glClientActiveTexture(t) bridge_ActiveTexture(t)
