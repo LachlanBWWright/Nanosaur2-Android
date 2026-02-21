@@ -955,10 +955,23 @@ do_anaglyph:
 #ifdef __ANDROID__
 	TouchControls_Draw();
 	// Force-dirty OGL_Support state caches that TouchControls_Draw may have touched.
-	// glEnable/Disable bypass OGL_Support's state tracking, so we must mark
-	// these as unknown to ensure they are re-applied correctly next frame.
+	// TouchControls_Draw calls glActiveTexture / bridge_Enable / bridge_Disable directly,
+	// bypassing OGL_Support's state tracking, so we must fully re-sync here.
+
+	// Reset texture unit 1 state explicitly: bridge_IsEnabled(GL_TEXTURE_2D) used in
+	// TouchControls_Draw always returned gTexture0Enabled (ignoring active texture unit),
+	// so savedTex1 was wrong → restore incorrectly set gTexture1Enabled=true.
+	// Fix: explicitly disable texture 1 here so the bridge state is always clean.
+	OGL_ActiveTextureUnit(GL_TEXTURE1);
+	gMyState_Texture2D = true;    // pretend it's enabled so OGL_DisableTexture2D will call glDisable
+	OGL_DisableTexture2D();       // → bridge_Disable(GL_TEXTURE_2D) with gActiveTexture=1 → gTexture1Enabled=false
+
+	// Return to texture unit 0 and dirty its state so OGL_EnableTexture2D re-syncs it next frame.
+	OGL_ActiveTextureUnit(GL_TEXTURE0);
+	gMyState_Texture2D = false;   // next OGL_EnableTexture2D will re-sync bridge gTexture0Enabled
+
+	// Dirty remaining states
 	gMyState_Blend    = false;    // blend was disabled; next OGL_EnableBlend will re-enable
-	gMyState_Texture2D = false;   // next OGL_EnableTexture2D will re-sync bridge state
 	gMyState_Fog      = false;    // fog was disabled; next OGL_EnableFog will re-enable
 	gMyState_Lighting = false;    // lighting was disabled; next OGL_EnableLighting will re-enable
 #endif

@@ -1319,7 +1319,8 @@ GLboolean bridge_IsEnabled(GLenum cap) {
         case 0x0B50: return gLightingEnabled ? GL_TRUE : GL_FALSE;   // GL_LIGHTING
         case 0x0BC0: return gAlphaTestEnabled ? GL_TRUE : GL_FALSE;  // GL_ALPHA_TEST
         case 0x0B60: return gFogEnabled ? GL_TRUE : GL_FALSE;        // GL_FOG
-        case 0x0DE1: return gTexture0Enabled ? GL_TRUE : GL_FALSE;   // GL_TEXTURE_2D
+        case 0x0DE1: // GL_TEXTURE_2D — return per-unit state based on active texture
+            return ((gActiveTexture == 0) ? gTexture0Enabled : gTexture1Enabled) ? GL_TRUE : GL_FALSE;
         case 0x0C60:
         case 0x0C61: return gTexGenEnabled ? GL_TRUE : GL_FALSE;     // GL_TEXTURE_GEN_S/T
         // Desktop-only caps not in GLES3: return false without causing GL error

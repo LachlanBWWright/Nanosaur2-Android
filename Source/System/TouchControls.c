@@ -21,7 +21,8 @@
 #define JOYSTICK_CY_FRAC    0.80f
 
 // Action buttons: lower right (diamond layout)
-#define BTN_RIGHT_CX_FRAC   0.90f
+// Center the DIAMOND at BTN_RIGHT_CX_FRAC; right button is at cx+spacing but won't exceed screen edge
+#define BTN_RIGHT_CX_FRAC   0.85f
 #define BTN_RIGHT_CY_FRAC   0.65f
 
 // Control mode
@@ -40,7 +41,8 @@ static bool          gControlsVisible = true;
 // Joystick state
 static float gJoystickCX, gJoystickCY, gJoystickRadius;
 static float gJoystickThumbRadius;
-static float gJoystickX = 0.0f, gJoystickY = 0.0f;  // -1..+1
+static float gJoystickX = 0.0f, gJoystickY = 0.0f;  // -1..+1 (dead-zone adjusted, used by game)
+static float gJoystickRawX = 0.0f, gJoystickRawY = 0.0f; // raw -1..+1 (used for thumb visual only)
 static SDL_FingerID gJoystickFingerID = 0;
 static bool  gJoystickActive = false;
 
@@ -177,6 +179,8 @@ void TouchControls_Shutdown(void) {
 void TouchControls_Recenter(void) {
     gJoystickX = 0.0f;
     gJoystickY = 0.0f;
+    gJoystickRawX = 0.0f;
+    gJoystickRawY = 0.0f;
     gGyroX = 0.0f;
     gGyroY = 0.0f;
 }
@@ -238,6 +242,8 @@ void TouchControls_ProcessFingerDown(SDL_FingerID fingerID, float fx, float fy) 
             float dy = (py - gJoystickCY) / gJoystickRadius;
             float len = sqrtf(dx*dx + dy*dy);
             if (len > 1.0f) { dx /= len; dy /= len; }
+            gJoystickRawX = dx;
+            gJoystickRawY = dy;
             gJoystickX = (fabsf(dx) > JOYSTICK_DEAD_ZONE) ? dx : 0.0f;
             gJoystickY = (fabsf(dy) > JOYSTICK_DEAD_ZONE) ? dy : 0.0f;
             return;
@@ -269,6 +275,8 @@ void TouchControls_ProcessFingerMotion(SDL_FingerID fingerID, float fx, float fy
         float dy = (py - gJoystickCY) / gJoystickRadius;
         float len = sqrtf(dx*dx + dy*dy);
         if (len > 1.0f) { dx /= len; dy /= len; }
+        gJoystickRawX = dx;
+        gJoystickRawY = dy;
         gJoystickX = (fabsf(dx) > JOYSTICK_DEAD_ZONE) ? dx : 0.0f;
         gJoystickY = (fabsf(dy) > JOYSTICK_DEAD_ZONE) ? dy : 0.0f;
     }
@@ -281,6 +289,8 @@ void TouchControls_ProcessFingerUp(SDL_FingerID fingerID, float fx, float fy) {
         gJoystickActive = false;
         gJoystickX = 0.0f;
         gJoystickY = 0.0f;
+        gJoystickRawX = 0.0f;
+        gJoystickRawY = 0.0f;
     }
 
     for (int i = 0; i < gNumButtons; i++) {
@@ -516,38 +526,92 @@ void TouchControls_Draw(void) {
         DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
                           0.8f, 0.8f, 0.8f, 0.45f);
 
-        // Thumb indicator
-        float thumbX = gJoystickCX + gJoystickX * gJoystickRadius * 0.7f;
-        float thumbY = gJoystickCY + gJoystickY * gJoystickRadius * 0.7f;
+        // Thumb indicator: use RAW (pre-dead-zone) position so it tracks the finger
+        float thumbX = gJoystickCX + gJoystickRawX * gJoystickRadius * 0.85f;
+        float thumbY = gJoystickCY + gJoystickRawY * gJoystickRadius * 0.85f;
         DrawCircleFilled(thumbX, thumbY, gJoystickThumbRadius, 16,
                          0.7f, 0.7f, 0.7f, 0.6f);
         DrawCircleOutline(thumbX, thumbY, gJoystickThumbRadius, 16,
                           1.0f, 1.0f, 1.0f, 0.7f);
     } else {
-        // Gyro mode: show a gyro symbol (concentric arcs approximated as small circles)
+        // Gyro mode: blue tinted base + tilt indicator + concentric ring to suggest rotation
         DrawCircleFilled(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
-                         0.1f, 0.2f, 0.5f, 0.18f);
+                         0.05f, 0.1f, 0.4f, 0.25f);
         DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius, 32,
-                          0.4f, 0.6f, 1.0f, 0.55f);
+                          0.4f, 0.6f, 1.0f, 0.65f);
+        DrawCircleOutline(gJoystickCX, gJoystickCY, gJoystickRadius * 0.6f, 24,
+                          0.3f, 0.5f, 0.9f, 0.45f);
         // Inner indicator dot showing tilt
         float gx = gJoystickCX + gGyroX * gJoystickRadius * 0.7f;
         float gy = gJoystickCY + gGyroY * gJoystickRadius * 0.7f;
         DrawCircleFilled(gx, gy, gJoystickThumbRadius, 16,
-                         0.4f, 0.6f, 1.0f, 0.65f);
+                         0.4f, 0.8f, 1.0f, 0.80f);
+        DrawCircleOutline(gx, gy, gJoystickThumbRadius, 16,
+                          0.7f, 0.9f, 1.0f, 0.9f);
     }
 
-    // Draw action buttons (diamond layout, lower right)
+    // Draw action buttons (diamond layout, lower right) with function icons
     for (int i = 0; i < gNumButtons; i++) {
         float pr, pg, pb, pa;
+        float ir, ig, ib;  // icon color
         if (gButtons[i].pressed) {
-            pr = 0.9f; pg = 0.5f; pb = 0.1f; pa = 0.70f;
+            pr = 0.9f; pg = 0.5f; pb = 0.1f; pa = 0.75f;
+            ir = 1.0f; ig = 1.0f; ib = 1.0f;
         } else {
-            pr = 0.2f; pg = 0.2f; pb = 0.4f; pa = 0.30f;
+            // Use distinct colors per button for easy identification
+            switch (i) {
+                case 0: pr=0.6f; pg=0.1f; pb=0.1f; pa=0.40f; ir=1.0f; ig=0.5f; ib=0.5f; break; // Fire: red
+                case 1: pr=0.1f; pg=0.4f; pb=0.6f; pa=0.40f; ir=0.5f; ig=0.8f; ib=1.0f; break; // Jetpack: blue
+                case 2: pr=0.5f; pg=0.3f; pb=0.0f; pa=0.40f; ir=1.0f; ig=0.8f; ib=0.4f; break; // PrevWeapon: orange
+                default:pr=0.1f; pg=0.5f; pb=0.1f; pa=0.40f; ir=0.5f; ig=1.0f; ib=0.5f; break; // NextWeapon: green
+            }
         }
         DrawCircleFilled(gButtons[i].cx, gButtons[i].cy, gButtons[i].radius, 16,
                          pr, pg, pb, pa);
         DrawCircleOutline(gButtons[i].cx, gButtons[i].cy, gButtons[i].radius, 16,
-                          0.9f, 0.9f, 0.9f, 0.6f);
+                          ir*0.9f, ig*0.9f, ib*0.9f, 0.75f);
+
+        // Draw function icon inside each button
+        float cx = gButtons[i].cx, cy = gButtons[i].cy;
+        float r  = gButtons[i].radius;
+        float s  = r * 0.45f;  // icon half-size
+        switch (i) {
+            case 0: // Fire: filled circle + lines suggesting a muzzle flash
+                DrawCircleFilled(cx, cy, s * 0.55f, 8, ir, ig, ib, 0.85f);
+                // Four short lines radiating outward (cross)
+                DrawRectFilled(cx - s*0.1f, cy - s*1.1f, s*0.2f, s*0.5f, ir, ig, ib, 0.7f);
+                DrawRectFilled(cx - s*0.1f, cy + s*0.6f, s*0.2f, s*0.5f, ir, ig, ib, 0.7f);
+                DrawRectFilled(cx - s*1.1f, cy - s*0.1f, s*0.5f, s*0.2f, ir, ig, ib, 0.7f);
+                DrawRectFilled(cx + s*0.6f, cy - s*0.1f, s*0.5f, s*0.2f, ir, ig, ib, 0.7f);
+                break;
+            case 1: // Jetpack: upward arrow
+                // Arrowhead (triangle)
+                bridge_Color4f(ir, ig, ib, 0.85f);
+                bridge_Begin(BRIDGE_GL_TRIANGLES);
+                bridge_Vertex2f(cx,       cy - s);
+                bridge_Vertex2f(cx - s*0.7f, cy);
+                bridge_Vertex2f(cx + s*0.7f, cy);
+                bridge_End();
+                // Arrow shaft
+                DrawRectFilled(cx - s*0.25f, cy, s*0.5f, s*0.7f, ir, ig, ib, 0.75f);
+                break;
+            case 2: // PrevWeapon: left-pointing chevron
+                bridge_Color4f(ir, ig, ib, 0.85f);
+                bridge_Begin(BRIDGE_GL_TRIANGLES);
+                bridge_Vertex2f(cx - s,    cy);
+                bridge_Vertex2f(cx + s*0.2f, cy - s*0.7f);
+                bridge_Vertex2f(cx + s*0.2f, cy + s*0.7f);
+                bridge_End();
+                break;
+            case 3: // NextWeapon: right-pointing chevron
+                bridge_Color4f(ir, ig, ib, 0.85f);
+                bridge_Begin(BRIDGE_GL_TRIANGLES);
+                bridge_Vertex2f(cx + s,    cy);
+                bridge_Vertex2f(cx - s*0.2f, cy - s*0.7f);
+                bridge_Vertex2f(cx - s*0.2f, cy + s*0.7f);
+                bridge_End();
+                break;
+        }
     }
 
     // Draw pause button (top right, circle)
@@ -570,24 +634,41 @@ void TouchControls_Draw(void) {
     {
         float tR, tG, tB;
         if (gControlMode == CONTROL_MODE_GYROSCOPE) {
-            tR=0.15f; tG=0.25f; tB=0.60f;
+            tR=0.10f; tG=0.15f; tB=0.55f;
         } else {
-            tR=0.15f; tG=0.35f; tB=0.15f;
+            tR=0.10f; tG=0.30f; tB=0.10f;
         }
         DrawRectFilled(gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH,
-                       tR, tG, tB, 0.50f);
+                       tR, tG, tB, 0.55f);
         DrawRectOutline(gToggleBtnX, gToggleBtnY, gToggleBtnW, gToggleBtnH,
-                        tR*2.5f+0.2f, tG*2.5f+0.2f, tB*2.5f+0.2f, 0.75f);
-        // Small icon inside: circle for gyro, cross for joystick
-        float icx = gToggleBtnX + gToggleBtnW * 0.5f;
+                        tR*3.0f+0.25f, tG*3.0f+0.25f, tB*3.0f+0.25f, 0.85f);
+        // Icon: in gyro mode show concentric rings (gyroscope symbol)
+        // In joystick mode show a circle with center dot (joystick symbol)
+        float icx = gToggleBtnX + gToggleBtnW * 0.3f;
         float icy = gToggleBtnY + gToggleBtnH * 0.5f;
-        float icr = gToggleBtnH * 0.28f;
+        float icr = gToggleBtnH * 0.30f;
         if (gControlMode == CONTROL_MODE_GYROSCOPE) {
-            DrawCircleOutline(icx, icy, icr, 12, 0.6f, 0.8f, 1.0f, 0.9f);
+            // Gyro symbol: concentric rings
+            DrawCircleOutline(icx, icy, icr,       12, 0.5f, 0.8f, 1.0f, 0.9f);
+            DrawCircleOutline(icx, icy, icr * 0.6f, 8, 0.5f, 0.8f, 1.0f, 0.7f);
+            DrawCircleFilled (icx, icy, icr * 0.2f, 6, 0.5f, 0.8f, 1.0f, 0.9f);
         } else {
+            // Joystick symbol: circle with off-center dot
             DrawCircleOutline(icx, icy, icr, 12, 0.4f, 0.9f, 0.4f, 0.9f);
-            // Center dot
-            DrawCircleFilled(icx, icy, icr*0.35f, 8, 0.4f, 0.9f, 0.4f, 0.9f);
+            DrawCircleFilled (icx - icr*0.25f, icy - icr*0.25f, icr*0.30f, 8, 0.4f, 0.9f, 0.4f, 0.9f);
+        }
+        // Second icon area: label "GYRO" or "STICK" as a simple visual hint
+        // Draw a small rectangle on the right side of the button to represent a "tag"
+        float tagX = gToggleBtnX + gToggleBtnW * 0.62f;
+        float tagH = gToggleBtnH * 0.55f;
+        float tagW = gToggleBtnW * 0.30f;
+        float tagY = gToggleBtnY + (gToggleBtnH - tagH) * 0.5f;
+        if (gControlMode == CONTROL_MODE_GYROSCOPE) {
+            DrawRectFilled(tagX, tagY, tagW, tagH, 0.3f, 0.5f, 1.0f, 0.50f);
+            DrawRectOutline(tagX, tagY, tagW, tagH, 0.5f, 0.8f, 1.0f, 0.75f);
+        } else {
+            DrawRectFilled(tagX, tagY, tagW, tagH, 0.2f, 0.7f, 0.2f, 0.50f);
+            DrawRectOutline(tagX, tagY, tagW, tagH, 0.4f, 0.9f, 0.4f, 0.75f);
         }
     }
 
