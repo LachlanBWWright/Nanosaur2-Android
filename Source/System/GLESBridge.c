@@ -111,6 +111,7 @@ static GLint u_fogStart;
 static GLint u_fogEnd;
 static GLint u_fogDensity;
 static GLint u_fogColor;
+static GLint u_colorArrayEnabled;
 
 // Attribute locations
 static GLint a_position;
@@ -129,6 +130,7 @@ static const char* kVertexShader =
 "uniform bool u_texGenEnabled;\n"
 "uniform int  u_texGenMode;\n"
 "uniform vec4 u_globalColor;\n"
+"uniform bool u_colorArrayEnabled;\n"
 "uniform bool u_lightEnabled[8];\n"
 "uniform vec4 u_lightAmbient[8];\n"
 "uniform vec4 u_lightDiffuse[8];\n"
@@ -153,7 +155,10 @@ static const char* kVertexShader =
 "  v_fogDepth = -eyePos.z;\n"
 "  if (u_lightingEnabled) {\n"
 "    vec3 eyeNormal = normalize(mat3(u_normalMatrix) * a_normal);\n"
-"    vec4 color = u_matEmission + u_sceneAmbient * u_matAmbient;\n"
+"    // Simulate GL_COLOR_MATERIAL(AMBIENT_AND_DIFFUSE): per-vertex color overrides material\n"
+"    vec4 matAmb = u_colorArrayEnabled ? a_color : u_matAmbient;\n"
+"    vec4 matDif = u_colorArrayEnabled ? a_color : u_matDiffuse;\n"
+"    vec4 color = u_matEmission + u_sceneAmbient * matAmb;\n"
 "    for (int i = 0; i < 8; i++) {\n"
 "      if (!u_lightEnabled[i]) continue;\n"
 "      vec3 lightDir;\n"
@@ -163,12 +168,12 @@ static const char* kVertexShader =
 "        lightDir = normalize(u_lightPosition[i].xyz - eyePos.xyz);\n"
 "      }\n"
 "      float diff = max(dot(eyeNormal, lightDir), 0.0);\n"
-"      vec4 ambient = u_lightAmbient[i] * u_matAmbient;\n"
-"      vec4 diffuse = u_lightDiffuse[i] * u_matDiffuse * diff;\n"
+"      vec4 ambient = u_lightAmbient[i] * matAmb;\n"
+"      vec4 diffuse = u_lightDiffuse[i] * matDif * diff;\n"
 "      color += ambient + diffuse;\n"
 "    }\n"
 "    v_color = clamp(color, 0.0, 1.0);\n"
-"    v_color.a = u_matDiffuse.a;\n"
+"    v_color.a = matDif.a;\n"
 "  } else {\n"
 "    v_color = a_color * u_globalColor;\n"
 "  }\n"
@@ -292,6 +297,7 @@ void GLES_Init(void) {
     u_texGenEnabled    = GetUniformLoc(gShaderProgram, "u_texGenEnabled");
     u_texGenMode       = GetUniformLoc(gShaderProgram, "u_texGenMode");
     u_globalColor      = GetUniformLoc(gShaderProgram, "u_globalColor");
+    u_colorArrayEnabled = GetUniformLoc(gShaderProgram, "u_colorArrayEnabled");
     u_matAmbient       = GetUniformLoc(gShaderProgram, "u_matAmbient");
     u_matDiffuse       = GetUniformLoc(gShaderProgram, "u_matDiffuse");
     u_matSpecular      = GetUniformLoc(gShaderProgram, "u_matSpecular");
@@ -367,6 +373,7 @@ static float  gFogColor[4]     = {0,0,0,0};
 static int    gFogModeVal      = 0; // linear
 static int    gTexEnvModeVal   = 0; // modulate
 static int    gActiveTexture   = 0;
+static bool   gColorArrayEnabled = false; // tracks GL_COLOR_ARRAY client state
 
 static float gCurrentColor[4] = {1,1,1,1};
 static float gCurrentNormal[3] = {0,0,1};
@@ -419,6 +426,7 @@ static void UploadState(void) {
     glUniformMatrix4fv(u_textureMatrix, 1, GL_FALSE, gTextureStack[gTextureTop]);
 
     glUniform1i(u_lightingEnabled, gLightingEnabled ? 1 : 0);
+    glUniform1i(u_colorArrayEnabled, gColorArrayEnabled ? 1 : 0);
     glUniform1i(u_texGenEnabled,   gTexGenEnabled   ? 1 : 0);
     glUniform1i(u_texGenMode,      gTexGenModeVal);
     glUniform4fv(u_globalColor, 1, gCurrentColor);
@@ -821,22 +829,25 @@ void bridge_TexCoord2fv(const float *v) {
 
 void bridge_Color4f(float r, float g, float b, float a) {
     gCurrentColor[0]=r; gCurrentColor[1]=g; gCurrentColor[2]=b; gCurrentColor[3]=a;
+    // Simulate GL_COLOR_MATERIAL(AMBIENT_AND_DIFFUSE): current color also sets material
+    gMatAmbient[0]=r; gMatAmbient[1]=g; gMatAmbient[2]=b; gMatAmbient[3]=a;
+    gMatDiffuse[0]=r; gMatDiffuse[1]=g; gMatDiffuse[2]=b; gMatDiffuse[3]=a;
 }
 
 void bridge_Color4fv(const float *c) {
-    memcpy(gCurrentColor, c, 4*sizeof(float));
+    bridge_Color4f(c[0], c[1], c[2], c[3]);
 }
 
 void bridge_Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-    gCurrentColor[0]=r/255.0f; gCurrentColor[1]=g/255.0f; gCurrentColor[2]=b/255.0f; gCurrentColor[3]=a/255.0f;
+    bridge_Color4f(r/255.0f, g/255.0f, b/255.0f, a/255.0f);
 }
 
 void bridge_Color3f(float r, float g, float b) {
-    gCurrentColor[0]=r; gCurrentColor[1]=g; gCurrentColor[2]=b; gCurrentColor[3]=1.0f;
+    bridge_Color4f(r, g, b, 1.0f);
 }
 
 void bridge_Color3fv(const float *c) {
-    bridge_Color3f(c[0], c[1], c[2]);
+    bridge_Color4f(c[0], c[1], c[2], 1.0f);
 }
 
 // Convert quad indices to triangle indices (in-place on a temporary array)
@@ -992,7 +1003,7 @@ void bridge_EnableClientState(GLenum array) {
         case 0x8074: gVAState[0].enabled = true; break; // GL_VERTEX_ARRAY
         case 0x8075: gVAState[1].enabled = true; break; // GL_NORMAL_ARRAY
         case 0x8078: gVAState[2].enabled = true; break; // GL_TEXTURE_COORD_ARRAY
-        case 0x8076: gVAState[3].enabled = true; break; // GL_COLOR_ARRAY
+        case 0x8076: gVAState[3].enabled = true; gColorArrayEnabled = true; break; // GL_COLOR_ARRAY
     }
 }
 
@@ -1001,7 +1012,7 @@ void bridge_DisableClientState(GLenum array) {
         case 0x8074: gVAState[0].enabled = false; break;
         case 0x8075: gVAState[1].enabled = false; break;
         case 0x8078: gVAState[2].enabled = false; break;
-        case 0x8076: gVAState[3].enabled = false; break;
+        case 0x8076: gVAState[3].enabled = false; gColorArrayEnabled = false; break;
     }
 }
 

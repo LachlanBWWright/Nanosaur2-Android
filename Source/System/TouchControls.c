@@ -72,6 +72,7 @@ static bool  gPauseBtnPressed = false;
 // Gyro smoothing
 static float gGyroX = 0.0f, gGyroY = 0.0f;
 static bool  gGyroAvailable = false;
+static SDL_Sensor *gGyroSensor = NULL;  // kept open while gyro mode is active
 
 // ============================================================
 // HELPER: distance
@@ -83,6 +84,25 @@ static float Distance2D(float ax, float ay, float bx, float by) {
 
 static bool PointInRect(float px, float py, float rx, float ry, float rw, float rh) {
     return px >= rx && px <= rx + fabsf(rw) && py >= ry && py <= ry + fabsf(rh);
+}
+
+// ============================================================
+// HELPER: open the gyroscope sensor
+// ============================================================
+
+static SDL_Sensor *OpenGyroSensor(void) {
+    int count = 0;
+    SDL_SensorID *sensors = SDL_GetSensors(&count);
+    if (!sensors) return NULL;
+    SDL_Sensor *result = NULL;
+    for (int s = 0; s < count; s++) {
+        if (SDL_GetSensorTypeForID(sensors[s]) == SDL_SENSOR_GYRO) {
+            result = SDL_OpenSensor(sensors[s]);
+            break;
+        }
+    }
+    SDL_free(sensors);
+    return result;
 }
 
 // ============================================================
@@ -150,7 +170,7 @@ void TouchControls_Init(void) {
     gRecenterBtnX = gToggleBtnX + gToggleBtnW + fw * 0.01f;
     gRecenterBtnY = gToggleBtnY;
 
-    // Check if gyroscope is available
+    // Check if gyroscope is available by briefly probing the sensor list
     {
         int sensorCount = 0;
         SDL_SensorID *sensorList = SDL_GetSensors(&sensorCount);
@@ -169,7 +189,10 @@ void TouchControls_Init(void) {
 }
 
 void TouchControls_Shutdown(void) {
-    // Nothing to do
+    if (gGyroSensor) {
+        SDL_CloseSensor(gGyroSensor);
+        gGyroSensor = NULL;
+    }
 }
 
 // ============================================================
@@ -192,8 +215,17 @@ void TouchControls_Recenter(void) {
 void TouchControls_ToggleMode(void) {
     if (gControlMode == CONTROL_MODE_JOYSTICK) {
         gControlMode = CONTROL_MODE_GYROSCOPE;
+        // Open the gyroscope sensor and keep it open for continuous reading
+        if (!gGyroSensor && gGyroAvailable) {
+            gGyroSensor = OpenGyroSensor();
+        }
     } else {
         gControlMode = CONTROL_MODE_JOYSTICK;
+        // Close the gyro sensor when switching back to joystick
+        if (gGyroSensor) {
+            SDL_CloseSensor(gGyroSensor);
+            gGyroSensor = NULL;
+        }
     }
     TouchControls_Recenter();
 }
@@ -309,29 +341,16 @@ void TouchControls_ProcessFingerUp(SDL_FingerID fingerID, float fx, float fy) {
 
 void TouchControls_UpdateGyro(void) {
     if (gControlMode != CONTROL_MODE_GYROSCOPE) return;
+    if (!gGyroSensor) return;
 
-    // Try to read gyroscope sensor
-    SDL_SensorID *sensors = NULL;
-    int count = 0;
-    sensors = SDL_GetSensors(&count);
-    if (!sensors || count == 0) return;
-
-    for (int i = 0; i < count; i++) {
-        if (SDL_GetSensorTypeForID(sensors[i]) == SDL_SENSOR_GYRO) {
-            SDL_Sensor *sensor = SDL_OpenSensor(sensors[i]);
-            if (sensor) {
-                float data[3] = {0};
-                SDL_GetSensorData(sensor, data, 3);
-                // Integrate gyro data (simplified - roll=X axis, pitch=Y axis)
-                float dt = 1.0f / 60.0f;
-                gGyroX = SDL_clamp(gGyroX + data[2] * dt * 0.5f, -1.0f, 1.0f); // yaw
-                gGyroY = SDL_clamp(gGyroY + data[1] * dt * 0.5f, -1.0f, 1.0f); // pitch
-                SDL_CloseSensor(sensor);
-            }
-            break;
-        }
+    // Read gyroscope data from the persistent sensor handle
+    float data[3] = {0};
+    if (SDL_GetSensorData(gGyroSensor, data, 3)) {
+        // Integrate gyro data: data[0]=roll, data[1]=pitch, data[2]=yaw
+        float dt = 1.0f / 60.0f;
+        gGyroX = SDL_clamp(gGyroX + data[2] * dt * 0.5f, -1.0f, 1.0f); // yaw  → horizontal
+        gGyroY = SDL_clamp(gGyroY + data[1] * dt * 0.5f, -1.0f, 1.0f); // pitch → vertical
     }
-    SDL_free(sensors);
 }
 
 // ============================================================

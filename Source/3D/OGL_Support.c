@@ -962,9 +962,9 @@ do_anaglyph:
 	// TouchControls_Draw always returned gTexture0Enabled (ignoring active texture unit),
 	// so savedTex1 was wrong → restore incorrectly set gTexture1Enabled=true.
 	// Fix: explicitly disable texture 1 here so the bridge state is always clean.
+	// OGL_DisableTexture2D for non-TEXTURE0 units always calls glDisable unconditionally.
 	OGL_ActiveTextureUnit(GL_TEXTURE1);
-	gMyState_Texture2D = true;    // pretend it's enabled so OGL_DisableTexture2D will call glDisable
-	OGL_DisableTexture2D();       // → bridge_Disable(GL_TEXTURE_2D) with gActiveTexture=1 → gTexture1Enabled=false
+	OGL_DisableTexture2D();           // → bridge_Disable(GL_TEXTURE_2D) with gActiveTexture=1 → gTexture1Enabled=false
 
 	// Return to texture unit 0 and dirty its state so OGL_EnableTexture2D re-syncs it next frame.
 	OGL_ActiveTextureUnit(GL_TEXTURE0);
