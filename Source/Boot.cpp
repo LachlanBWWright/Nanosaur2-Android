@@ -9,6 +9,12 @@
 #include "PommeInit.h"
 #include "PommeFiles.h"
 
+#ifdef __ANDROID__
+#include <SDL3/SDL_system.h>
+#include <android/log.h>
+#include <filesystem>
+#endif
+
 extern "C"
 {
 	#include "game.h"
@@ -21,6 +27,24 @@ extern "C"
 static fs::path FindGameData(const char* executablePath)
 {
 	fs::path dataPath;
+
+#ifdef __ANDROID__
+    // On Android, data is extracted to internal storage
+    const char* internalPath = SDL_GetAndroidInternalStoragePath();
+    if (internalPath) {
+        dataPath = std::string(internalPath) + "/Data";
+        gDataSpec = Pomme::Files::HostPathToFSSpec(dataPath / "System");
+        FSSpec someDataFileSpec2;
+        OSErr err2 = FSMakeFSSpec(gDataSpec.vRefNum, gDataSpec.parID, ":System:gamecontrollerdb.txt", &someDataFileSpec2);
+        if (!err2) {
+            return dataPath;
+        }
+    }
+    // Fall back to relative "Data" path (from APK assets)
+    dataPath = "Data";
+    gDataSpec = Pomme::Files::HostPathToFSSpec(dataPath / "System");
+    return dataPath;
+#endif
 
 	int attemptNum = 0;
 
@@ -81,6 +105,25 @@ static void Boot(int argc, char** argv)
 	// Start our "machine"
 	Pomme::Init();
 
+#ifdef __ANDROID__
+    // On Android, HOME is not set. Set it to the internal storage path.
+    if (!getenv("HOME")) {
+        const char* internalPath = SDL_GetAndroidInternalStoragePath();
+        if (internalPath) {
+            setenv("HOME", internalPath, 1);
+        }
+    }
+    // Create the .config directory that Pomme uses for prefs
+    {
+        namespace fs = std::filesystem;
+        const char *home = getenv("HOME");
+        if (home) {
+            std::error_code ec;
+            fs::create_directories(std::string(home) + "/.config", ec);
+        }
+    }
+#endif
+
 	// Find path to game data folder
 	const char* executablePath = argc > 0 ? argv[0] : NULL;
 	fs::path dataPath = FindGameData(executablePath);
@@ -96,9 +139,15 @@ retryVideo:
 	}
 
 	// Create window
+#ifdef __ANDROID__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 
 	gCurrentAntialiasingLevel = gGamePrefs.antialiasingLevel;
 	if (gCurrentAntialiasingLevel != 0)
@@ -167,9 +216,8 @@ int main(int argc, char** argv)
 	{
 		// no-op, the game may throw this exception to shut us down cleanly
 	}
-#if !(_DEBUG)
-	// In release builds, catch anything that might be thrown by GameMain
-	// so we can show an error dialog to the user.
+#if !(_DEBUG) || defined(__ANDROID__)
+	// In release builds (and always on Android), catch anything that might be thrown
 	catch (std::exception& ex)		// Last-resort catch
 	{
 		success = false;
