@@ -1155,11 +1155,11 @@ void bridge_GetDoublev(GLenum pname, double *params) {
     // Return something sensible for common queries
     float fparams[16];
     switch (pname) {
-        case 0x0BA7: // GL_MODELVIEW_MATRIX
+        case 0x0BA6: // GL_MODELVIEW_MATRIX
             memcpy(fparams, gModelViewStack[gModelViewTop], 16*sizeof(float));
             for(int i=0;i<16;i++) params[i]=(double)fparams[i];
             break;
-        case 0x0BA8: // GL_PROJECTION_MATRIX
+        case 0x0BA7: // GL_PROJECTION_MATRIX
             memcpy(fparams, gProjectionStack[gProjectionTop], 16*sizeof(float));
             for(int i=0;i<16;i++) params[i]=(double)fparams[i];
             break;
