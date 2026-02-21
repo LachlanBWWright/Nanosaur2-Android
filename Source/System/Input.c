@@ -3,6 +3,9 @@
 // This file is part of Nanosaur 2. https://github.com/jorio/Nanosaur2
 
 #include "game.h"
+#ifdef __ANDROID__
+#include "touchcontrols.h"
+#endif
 
 /***************/
 /* CONSTANTS   */
@@ -169,6 +172,12 @@ static void UpdateMouseButtonStates(int mouseWheelDeltaX, int mouseWheelDeltaY)
 {
 	uint32_t mouseButtons = SDL_GetMouseState(NULL, NULL);
 
+#ifdef __ANDROID__
+	// On Android, SDL_GetMouseState returns touch-synthesised state.
+	// Clear it to prevent accidental fire/action on any touch.
+	mouseButtons = 0;
+#endif
+
 	for (int i = 1; i < NUM_SUPPORTED_MOUSE_BUTTONS_PURESDL; i++)	// SDL buttons start at 1!
 	{
 		bool buttonBit = 0 != (mouseButtons & SDL_BUTTON_MASK(i));
@@ -200,6 +209,11 @@ static void UpdateInputNeeds(void)
 		}
 
 		pressed |= gMouseButtonStates[kb->mouseButton] & KEYSTATE_ACTIVE_BIT;
+
+#ifdef __ANDROID__
+		// Inject touch button states
+		pressed |= TouchControls_IsButtonPressed(need);
+#endif
 
 		UpdateKeyState(&gNeedStates[need], pressed);
 	}
@@ -317,6 +331,11 @@ void DoSDLMaintenance(void)
 				break;
 
 			case SDL_EVENT_MOUSE_MOTION:
+#ifdef __ANDROID__
+				// Skip touch-synthesized mouse motion
+				if (event.motion.which == SDL_TOUCH_MOUSEID)
+					break;
+#endif
 				gMouseMotionNow = true;
 				gUserPrefersGamepad = false;
 #if MOUSE_SMOOTHING
@@ -342,6 +361,29 @@ void DoSDLMaintenance(void)
 			case SDL_EVENT_GAMEPAD_BUTTON_UP:
 				gUserPrefersGamepad = true;
 				break;
+
+#ifdef __ANDROID__
+			case SDL_EVENT_FINGER_DOWN:
+				TouchControls_ProcessFingerDown(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+
+			case SDL_EVENT_FINGER_MOTION:
+				TouchControls_ProcessFingerMotion(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+
+			case SDL_EVENT_FINGER_UP:
+				TouchControls_ProcessFingerUp(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+#endif
 		}
 	}
 
@@ -354,6 +396,11 @@ void DoSDLMaintenance(void)
 
 	// Refresh the state of each mouse button
 	UpdateMouseButtonStates(mouseWheelDeltaX, mouseWheelDeltaY);
+
+#ifdef __ANDROID__
+	// Update gyroscope state for gyro control mode
+	TouchControls_UpdateGyro();
+#endif
 
 	// Refresh the state of each input need
 	UpdateInputNeeds();
@@ -499,14 +546,26 @@ float GetNeedAnalogSteering(int negativeNeedID, int positiveNeedID, int playerID
 	float neg = GetNeedAnalogValue(negativeNeedID, playerID);
 	float pos = GetNeedAnalogValue(positiveNeedID, playerID);
 
+	float result;
 	if (neg > pos)
-	{
-		return -neg;
-	}
+		result = -neg;
 	else
-	{
-		return pos;
+		result = pos;
+
+#ifdef __ANDROID__
+	// Inject touch joystick / gyro steering
+	if (result == 0.0f) {
+		float jx = TouchControls_GetJoystickX();
+		float jy = TouchControls_GetJoystickY();
+		if (negativeNeedID == kNeed_YawLeft && positiveNeedID == kNeed_YawRight) {
+			if (jx != 0.0f) result = jx;
+		} else if (negativeNeedID == kNeed_PitchUp && positiveNeedID == kNeed_PitchDown) {
+			if (jy != 0.0f) result = jy;
+		}
 	}
+#endif
+
+	return result;
 }
 
 Boolean UserWantsOut(void)
@@ -1017,6 +1076,13 @@ static void MouseSmoothing_PopOldestSnapshot(void)
 
 	state->ringStart = (state->ringStart + 1) % DELTA_MOUSE_MAX_SNAPSHOTS;
 	state->ringLength--;
+
+	if (state->ringLength == 0)
+	{
+		// Force exact zero to prevent float residue from tripping the assertion
+		state->dxAccu = 0.0f;
+		state->dyAccu = 0.0f;
+	}
 
 	GAME_ASSERT(state->ringLength != 0 || (state->dxAccu == 0 && state->dyAccu == 0));
 }

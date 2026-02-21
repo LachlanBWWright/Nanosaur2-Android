@@ -10,3 +10,22 @@ dist/
 .idea/
 .DS_Store
 *.user
+
+# Android build artifacts (do NOT ignore gradlew, gradle/wrapper - those are committed)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# SDL Java bridge files (auto-copied from extern/SDL during build)
+android/app/src/main/java/org/libsdl/app/
+
+# NDK/CMake outputs
+android/.cxx/
+android/app/.cxx/
+
+# extern/SDL (cloned by CI)
+extern/SDL/
+
+# CodeQL analysis artifacts
+_codeql_detected_source_root

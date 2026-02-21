@@ -13,6 +13,10 @@
 #include "game.h"
 #include "uieffects.h"
 
+#ifdef __ANDROID__
+#include "touchcontrols.h"
+#endif
+
 /****************************/
 /*    PROTOTYPES            */
 /****************************/
@@ -1008,6 +1012,11 @@ unsigned long	someLong;
 
 #if !_DEBUG
 	SDL_HideCursor();
+#endif
+
+#ifdef __ANDROID__
+	// Initialize touch controls (assets were already extracted in Boot())
+	TouchControls_Init();
 #endif
 
 	DoWarmUpScreen();

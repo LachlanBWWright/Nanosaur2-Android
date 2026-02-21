@@ -18,8 +18,12 @@
 
 #include <Pomme.h>
 #include <SDL3/SDL.h>
+#ifdef __ANDROID__
+#include "gles_compat.h"
+#else
 #include <SDL3/SDL_opengl.h>
 #include <SDL3/SDL_opengl_glext.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 

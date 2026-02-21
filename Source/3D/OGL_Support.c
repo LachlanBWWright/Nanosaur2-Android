@@ -12,15 +12,21 @@
 
 #include "game.h"
 #include "stb_image.h"
+#ifdef __ANDROID__
+#include "touchcontrols.h"
+#include <stdlib.h>
+#endif
 
 /****************************/
 /*    PROTOTYPES            */
 /****************************/
 
+#ifndef __ANDROID__
 static PFNGLACTIVETEXTUREPROC gGlActiveTextureProc;
 static PFNGLCLIENTACTIVETEXTUREARBPROC gGlClientActiveTextureProc;
 #define glActiveTexture gGlActiveTextureProc
 #define glClientActiveTexture gGlClientActiveTextureProc
+#endif
 
 static void OGL_CreateDrawContext(void);
 static void OGL_DisposeDrawContext(void);
@@ -348,6 +354,10 @@ GLint			maxTexSize;
 	if (!gAGLContext)
 		DoFatalAlert(SDL_GetError());
 
+#ifdef __ANDROID__
+	GLES_Init();
+#endif
+
 	GAME_ASSERT(glGetError() == GL_NO_ERROR);
 
 
@@ -385,11 +395,13 @@ GLint			maxTexSize;
 			/* GET GL PROCEDURES */
 			// Necessary on Windows
 
+	#ifndef __ANDROID__
 	gGlActiveTextureProc = (PFNGLACTIVETEXTUREPROC) SDL_GL_GetProcAddress("glActiveTexture");
 	GAME_ASSERT(gGlActiveTextureProc);
 
 	gGlClientActiveTextureProc = (PFNGLCLIENTACTIVETEXTUREARBPROC) SDL_GL_GetProcAddress("glClientActiveTexture");
 	GAME_ASSERT(gGlClientActiveTextureProc);
+#endif
 }
 
 /**************** OGL: NUKE DRAW CONTEXT *********************/
@@ -940,6 +952,30 @@ do_anaglyph:
 
            /* SWAP THE BUFFS */
 
+#ifdef __ANDROID__
+	TouchControls_Draw();
+	// Force-dirty OGL_Support state caches that TouchControls_Draw may have touched.
+	// TouchControls_Draw calls glActiveTexture / bridge_Enable / bridge_Disable directly,
+	// bypassing OGL_Support's state tracking, so we must fully re-sync here.
+
+	// Reset texture unit 1 state explicitly: bridge_IsEnabled(GL_TEXTURE_2D) used in
+	// TouchControls_Draw always returned gTexture0Enabled (ignoring active texture unit),
+	// so savedTex1 was wrong → restore incorrectly set gTexture1Enabled=true.
+	// Fix: explicitly disable texture 1 here so the bridge state is always clean.
+	// OGL_DisableTexture2D for non-TEXTURE0 units always calls glDisable unconditionally.
+	OGL_ActiveTextureUnit(GL_TEXTURE1);
+	OGL_DisableTexture2D();           // → bridge_Disable(GL_TEXTURE_2D) with gActiveTexture=1 → gTexture1Enabled=false
+
+	// Return to texture unit 0 and dirty its state so OGL_EnableTexture2D re-syncs it next frame.
+	OGL_ActiveTextureUnit(GL_TEXTURE0);
+	gMyState_Texture2D = false;   // next OGL_EnableTexture2D will re-sync bridge gTexture0Enabled
+
+	// Dirty remaining states
+	gMyState_Blend    = false;    // blend was disabled; next OGL_EnableBlend will re-enable
+	gMyState_Fog      = false;    // fog was disabled; next OGL_EnableFog will re-enable
+	gMyState_Lighting = false;    // lighting was disabled; next OGL_EnableLighting will re-enable
+#endif
+
 	SDL_GL_SwapWindow(gSDLWindow);							// end render loop
 
 	if (!gGamePaused)										// freeze frame count if paused (otherwise double-buffered skeletons will flicker)
@@ -1135,6 +1171,16 @@ GLuint	textureName;
 		glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
 #endif
 
+#ifdef __ANDROID__
+	// Convert unsupported texture formats for GLES3
+	{
+		int iFmt = (int)destFormat, sFmt = (int)srcFormat, sDT = (int)dataType;
+		void *converted = GLES_ConvertTextureFormat(imageMemory, width, height, &iFmt, &sFmt, &sDT);
+		glTexImage2D(GL_TEXTURE_2D, 0, iFmt, width, height, 0, sFmt, sDT,
+		             converted ? converted : imageMemory);
+		if (converted) free(converted);
+	}
+#else
 	glTexImage2D(GL_TEXTURE_2D,
 				0,										// mipmap level
 				destFormat,								// format in OpenGL
@@ -1144,6 +1190,7 @@ GLuint	textureName;
 				srcFormat,								// what my format is
 				dataType,								// size of each r,g,b
 				imageMemory);							// pointer to the actual texture pixels
+#endif
 
 			/* SEE IF RAN OUT OF MEMORY WHILE COPYING TO OPENGL */
 
@@ -1557,7 +1604,17 @@ void OGL_RAMTextureHasChanged(GLuint textureName, short width, short height, uin
 {
 	glBindTexture(GL_TEXTURE_2D, textureName);				// this is now the currently active texture
 
+#ifdef __ANDROID__
+	// Android GLES3 doesn't support GL_BGRA + GL_UNSIGNED_INT_8_8_8_8_REV
+	{
+		int internalFmt = GL_RGBA, fmt = GL_BGRA, type = GL_UNSIGNED_INT_8_8_8_8_REV;
+		void *converted = GLES_ConvertTextureFormat(pixels, width, height, &internalFmt, &fmt, &type);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, fmt, type, converted ? converted : pixels);
+		if (converted) free(converted);
+	}
+#else
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+#endif
 }
 
 

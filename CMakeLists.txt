@@ -22,6 +22,13 @@ project(${GAME_TARGET}
 option(BUILD_SDL_FROM_SOURCE "Build SDL from source" OFF)
 option(SDL_STATIC "Static link SDL" OFF)
 
+# Android-specific: force SDL from source, set up for shared library
+if(ANDROID)
+    set(BUILD_SDL_FROM_SOURCE ON CACHE BOOL "Build SDL from source for Android" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "Use shared SDL on Android" FORCE)
+    add_compile_definitions(__ANDROID__)
+endif()
+
 option(SANITIZE "Build with asan/ubsan" OFF)
 
 if(WIN32 OR APPLE)
@@ -86,7 +93,14 @@ else()
 		set(SDL3_DIR "${CMAKE_SOURCE_DIR}/extern/SDL")
 	endif()
 	message("Building SDL3 from source: " ${SDL3_DIR})
-	add_subdirectory("${SDL3_DIR}" EXCLUDE_FROM_ALL)
+	add_subdirectory("${SDL3_DIR}" "${CMAKE_BINARY_DIR}/SDL3_bin" EXCLUDE_FROM_ALL)
+	# Update SDL3_DIR to the binary dir so that submodule find_package(SDL3) calls
+	# can find SDL3Config.cmake. We update BOTH the normal variable and the cache.
+	# Without updating the normal variable, cmake policy CMP0126 causes find_package
+	# in submodules to see the old source-tree value (e.g. extern/SDL) instead of
+	# the binary dir, resulting in "could not find SDL3Config.cmake".
+	set(SDL3_DIR "${CMAKE_BINARY_DIR}/SDL3_bin")
+	set(SDL3_DIR "${CMAKE_BINARY_DIR}/SDL3_bin" CACHE PATH "" FORCE)
 endif()
 
 #------------------------------------------------------------------------------
@@ -95,7 +109,9 @@ endif()
 
 add_subdirectory(extern/Pomme)
 
-find_package(OpenGL REQUIRED)
+if(NOT ANDROID)
+    find_package(OpenGL REQUIRED)
+endif()
 
 #------------------------------------------------------------------------------
 # EXECUTABLE TARGET
@@ -119,9 +135,23 @@ elseif(APPLE)
 	set_source_files_properties(${CMAKE_SOURCE_DIR}/packaging/${GAME_TARGET}.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 endif()
 
-add_executable(${GAME_TARGET} ${GAME_SOURCES})
+if(ANDROID)
+    add_library(${GAME_TARGET} SHARED ${GAME_SOURCES})
+else()
+    add_executable(${GAME_TARGET} ${GAME_SOURCES})
+endif()
 
 target_include_directories(${GAME_TARGET} PRIVATE ${GAME_SRCDIR}/Headers)
+
+if(ANDROID)
+    # gles_compat.h is in Source/System, which is not in the default include path
+    target_include_directories(${GAME_TARGET} PRIVATE ${GAME_SRCDIR}/System)
+endif()
+
+if(ANDROID)
+    # On Android, the library must be named "main" so SDL's Java layer can load it
+    set_target_properties(${GAME_TARGET} PROPERTIES OUTPUT_NAME "main")
+endif()
 
 #------------------------------------------------------------------------------
 # COMPILER/LINKER OPTIONS
@@ -209,7 +239,11 @@ else()
 endif()
 
 # Link core dependencies
-target_link_libraries(${GAME_TARGET} PRIVATE Pomme OpenGL::GL)
+if(ANDROID)
+    target_link_libraries(${GAME_TARGET} PRIVATE Pomme GLESv3 log android)
+else()
+    target_link_libraries(${GAME_TARGET} PRIVATE Pomme OpenGL::GL)
+endif()
 
 # Add required frameworks for KillMacMouseAcceleration
 if(APPLE)
