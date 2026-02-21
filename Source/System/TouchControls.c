@@ -347,7 +347,9 @@ bool TouchControls_IsButtonPressed(int gameNeed) {
             if (gButtons[i].gameNeed == kNeed_NextWeapon && gameNeed == kNeed_UIBack)  return true;
         }
     }
-    // Pause button doubles as UIPause
+    // Pause button doubles as UIPause.
+    // Clearing gPauseBtnPressed here is safe: UpdateInputNeeds calls this function
+    // exactly once per frame for kNeed_UIPause, so it's consumed in one place per frame.
     if (gameNeed == kNeed_UIPause && gPauseBtnPressed) {
         gPauseBtnPressed = false;
         return true;

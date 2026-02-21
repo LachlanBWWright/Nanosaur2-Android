@@ -1261,9 +1261,10 @@ void* GLES_ConvertTextureFormat(
         const unsigned short *src = (const unsigned short*)pixels;
         for (int i = 0; i < n; i++) {
             unsigned short px = src[i];
-            dst[i*4+0] = (unsigned char)(((px >> 11) & 0x1F) * 255 / 31); // R
-            dst[i*4+1] = (unsigned char)(((px >>  6) & 0x1F) * 255 / 31); // G
-            dst[i*4+2] = (unsigned char)(((px >>  1) & 0x1F) * 255 / 31); // B
+            // Expand 5-bit channels to 8-bit using bit replication (v<<3)|(v>>2)
+            unsigned int r = (px >> 11) & 0x1F; dst[i*4+0] = (unsigned char)((r << 3) | (r >> 2));
+            unsigned int g = (px >>  6) & 0x1F; dst[i*4+1] = (unsigned char)((g << 3) | (g >> 2));
+            unsigned int b = (px >>  1) & 0x1F; dst[i*4+2] = (unsigned char)((b << 3) | (b >> 2));
             dst[i*4+3] = (unsigned char)((px & 0x01) ? 255 : 0);           // A
         }
         *internalFormat = GL_RGBA;
