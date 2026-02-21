@@ -431,10 +431,14 @@ void TouchControls_Draw(void) {
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // Disable 3D effects that would corrupt flat 2D drawing
+    // Disable 3D effects that would corrupt flat 2D drawing.
+    // Explicitly switch to both texture units to clear them.
     glDisable(GL_LIGHTING);
     glDisable(GL_FOG);
     glDisable(GL_ALPHA_TEST);
+    glActiveTexture(GL_TEXTURE1);
+    glDisable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0);
     glDisable(GL_TEXTURE_2D);
 
     bridge_MatrixMode(0x1701); // GL_PROJECTION
