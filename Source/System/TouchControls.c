@@ -80,7 +80,7 @@ static float Distance2D(float ax, float ay, float bx, float by) {
 }
 
 static bool PointInRect(float px, float py, float rx, float ry, float rw, float rh) {
-    return px >= rx && px <= rx+rw && py >= ry && py <= ry+rh;
+    return px >= rx && px <= rx + fabsf(rw) && py >= ry && py <= ry + fabsf(rh);
 }
 
 // ============================================================
@@ -463,7 +463,8 @@ void TouchControls_Draw(void) {
     // bridge_IsEnabled is used for bridge-tracked states;
     // glIsEnabled delegates to the real GLES for GLES-native states.
     // --------------------------------------------------------
-    bridge_EnsureShaderBound();  // ensure bridge shader program is active before uniform uploads
+    bridge_EnsureShaderBound();  // ensure the bridge's GLES3 shader is the active program so
+                                 // subsequent bridge_Begin/bridge_DrawElements → UploadState → glUniform* succeed
 
     // Reset viewport to full window so the overlay covers the whole screen,
     // not just the last split-screen pane that was active.
