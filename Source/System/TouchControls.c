@@ -356,8 +356,8 @@ bool TouchControls_IsButtonPressed(int gameNeed) {
     float jx = gJoystickX, jy = gJoystickY;
     if (gameNeed == kNeed_UIUp    && jy < -0.5f) return true;
     if (gameNeed == kNeed_UIDown  && jy >  0.5f) return true;
-    if (gameNeed == kNeed_UILeft  && jx < -0.5f) return true;
-    if (gameNeed == kNeed_UIRight && jx >  0.5f) return true;
+    if (gameNeed == kNeed_UIPrev  && jx < -0.5f) return true;
+    if (gameNeed == kNeed_UINext  && jx >  0.5f) return true;
     return false;
 }
 
@@ -429,6 +429,11 @@ void TouchControls_Draw(void) {
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Disable 3D effects that would corrupt flat 2D drawing
+    glDisable(GL_LIGHTING);
+    glDisable(GL_FOG);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_TEXTURE_2D);
 
     bridge_MatrixMode(0x1701); // GL_PROJECTION
     bridge_LoadIdentity();
