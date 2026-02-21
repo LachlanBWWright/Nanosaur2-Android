@@ -155,15 +155,22 @@ retryVideo:
 #endif
 
 	gCurrentAntialiasingLevel = gGamePrefs.antialiasingLevel;
+#ifndef __ANDROID__
+	// Skip MSAA on Android - use only what the system supports
 	if (gCurrentAntialiasingLevel != 0)
 	{
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 1 << gCurrentAntialiasingLevel);
 	}
+#endif
 
 	gSDLWindow = SDL_CreateWindow(
 		GAME_FULL_NAME " (" GAME_VERSION ")", 640, 480,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
+#ifdef __ANDROID__
+		| SDL_WINDOW_FULLSCREEN
+#endif
+	);
 
 	if (!gSDLWindow)
 	{
