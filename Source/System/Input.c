@@ -3,6 +3,9 @@
 // This file is part of Nanosaur 2. https://github.com/jorio/Nanosaur2
 
 #include "game.h"
+#ifdef __ANDROID__
+#include "touchcontrols.h"
+#endif
 
 /***************/
 /* CONSTANTS   */
@@ -317,6 +320,11 @@ void DoSDLMaintenance(void)
 				break;
 
 			case SDL_EVENT_MOUSE_MOTION:
+#ifdef __ANDROID__
+				// Skip touch-synthesized mouse motion
+				if (event.motion.which == SDL_TOUCH_MOUSEID)
+					break;
+#endif
 				gMouseMotionNow = true;
 				gUserPrefersGamepad = false;
 #if MOUSE_SMOOTHING
@@ -342,6 +350,29 @@ void DoSDLMaintenance(void)
 			case SDL_EVENT_GAMEPAD_BUTTON_UP:
 				gUserPrefersGamepad = true;
 				break;
+
+#ifdef __ANDROID__
+			case SDL_EVENT_FINGER_DOWN:
+				TouchControls_ProcessFingerDown(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+
+			case SDL_EVENT_FINGER_MOTION:
+				TouchControls_ProcessFingerMotion(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+
+			case SDL_EVENT_FINGER_UP:
+				TouchControls_ProcessFingerUp(
+					event.tfinger.fingerID,
+					event.tfinger.x,
+					event.tfinger.y);
+				break;
+#endif
 		}
 	}
 

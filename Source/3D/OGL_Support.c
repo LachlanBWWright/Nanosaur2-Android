@@ -348,6 +348,10 @@ GLint			maxTexSize;
 	if (!gAGLContext)
 		DoFatalAlert(SDL_GetError());
 
+#ifdef __ANDROID__
+	GLES_Init();
+#endif
+
 	GAME_ASSERT(glGetError() == GL_NO_ERROR);
 
 
