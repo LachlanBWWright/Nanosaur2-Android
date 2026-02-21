@@ -350,7 +350,7 @@ static inline void stub_RasterPos2f(float x, float y) { (void)x; (void)y; }
 #define glLightModelfv       stub_LightModelfv
 #define glLightModelf        stub_LightModelf
 #define glLightModeli        stub_LightModeli
-#define glHint(target, mode) ((void)0)
+#define glHint(target, mode) ((void)(target), (void)(mode))
 
 // Ensure GL_TEXTURE_2D is defined (may have been overridden above)
 #ifndef GL_TEXTURE_2D

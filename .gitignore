@@ -22,6 +22,7 @@ android/app/src/main/java/org/libsdl/app/
 
 # NDK/CMake outputs
 android/.cxx/
+android/app/.cxx/
 
 # extern/SDL (cloned by CI)
 extern/SDL/

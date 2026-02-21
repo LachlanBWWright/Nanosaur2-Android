@@ -172,6 +172,12 @@ static void UpdateMouseButtonStates(int mouseWheelDeltaX, int mouseWheelDeltaY)
 {
 	uint32_t mouseButtons = SDL_GetMouseState(NULL, NULL);
 
+#ifdef __ANDROID__
+	// On Android, SDL_GetMouseState returns touch-synthesised state.
+	// Clear it to prevent accidental fire/action on any touch.
+	mouseButtons = 0;
+#endif
+
 	for (int i = 1; i < NUM_SUPPORTED_MOUSE_BUTTONS_PURESDL; i++)	// SDL buttons start at 1!
 	{
 		bool buttonBit = 0 != (mouseButtons & SDL_BUTTON_MASK(i));
@@ -1070,6 +1076,13 @@ static void MouseSmoothing_PopOldestSnapshot(void)
 
 	state->ringStart = (state->ringStart + 1) % DELTA_MOUSE_MAX_SNAPSHOTS;
 	state->ringLength--;
+
+	if (state->ringLength == 0)
+	{
+		// Force exact zero to prevent float residue from tripping the assertion
+		state->dxAccu = 0.0f;
+		state->dyAccu = 0.0f;
+	}
 
 	GAME_ASSERT(state->ringLength != 0 || (state->dxAccu == 0 && state->dyAccu == 0));
 }
