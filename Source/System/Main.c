@@ -15,7 +15,6 @@
 
 #ifdef __ANDROID__
 #include "touchcontrols.h"
-#include "androidassets.h"
 #endif
 
 /****************************/
@@ -1016,10 +1015,7 @@ unsigned long	someLong;
 #endif
 
 #ifdef __ANDROID__
-	// Extract APK assets to internal storage on first launch
-	AndroidExtractAssets();
-
-	// Initialize touch controls
+	// Initialize touch controls (assets were already extracted in Boot())
 	TouchControls_Init();
 #endif
 

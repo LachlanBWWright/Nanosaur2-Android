@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Android NDK and CMake
         run: |
-          sdkmanager "ndk;27.3.13750724" "cmake;3.22.1"
+          sdkmanager --install "ndk;27.3.13750724" "cmake;3.22.1"
 
       - name: Clone SDL3
         run: |
@@ -43,10 +43,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate Gradle wrapper
-        working-directory: android
-        run: gradle wrapper --gradle-version=8.9
-
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x gradlew
@@ -54,8 +50,6 @@ jobs:
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4

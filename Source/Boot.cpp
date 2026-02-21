@@ -13,6 +13,7 @@
 #include <SDL3/SDL_system.h>
 #include <android/log.h>
 #include <filesystem>
+#include "androidassets.h"
 #endif
 
 extern "C"
@@ -125,6 +126,10 @@ static void Boot(int argc, char** argv)
 #endif
 
 	// Find path to game data folder
+#ifdef __ANDROID__
+	// On Android, extract APK assets to internal storage before locating data
+	AndroidExtractAssets();
+#endif
 	const char* executablePath = argc > 0 ? argv[0] : NULL;
 	fs::path dataPath = FindGameData(executablePath);
 

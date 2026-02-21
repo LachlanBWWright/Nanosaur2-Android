@@ -482,6 +482,15 @@ void bridge_Enable(GLenum cap) {
         case 0x0DE1: gTexture0Enabled = true; break;  // GL_TEXTURE_2D
         case 0x0C60: gTexGenEnabled = true; break;    // GL_TEXTURE_GEN_S
         case 0x0C61: gTexGenEnabled = true; break;    // GL_TEXTURE_GEN_T
+        // Desktop-only caps not in GLES3 - silently ignore
+        case 0x0B57: break; // GL_COLOR_MATERIAL
+        case 0x0BA1: break; // GL_NORMALIZE
+        case 0x803A: break; // GL_RESCALE_NORMAL
+        case 0x0BF2: break; // GL_COLOR_LOGIC_OP
+        case 0x0B20: break; // GL_LINE_SMOOTH
+        case 0x0B24: break; // GL_LINE_STIPPLE
+        case 0x0DE0: break; // GL_TEXTURE_1D
+        case 0x851D: break; // GL_VERTEX_ARRAY_RANGE_APPLE
         default: glEnable(cap); break;
     }
 }
@@ -502,6 +511,15 @@ void bridge_Disable(GLenum cap) {
         case 0x0DE1: gTexture0Enabled = false; break;
         case 0x0C60: gTexGenEnabled = false; break;
         case 0x0C61: gTexGenEnabled = false; break;
+        // Desktop-only caps not in GLES3 - silently ignore
+        case 0x0B57: break; // GL_COLOR_MATERIAL
+        case 0x0BA1: break; // GL_NORMALIZE
+        case 0x803A: break; // GL_RESCALE_NORMAL
+        case 0x0BF2: break; // GL_COLOR_LOGIC_OP
+        case 0x0B20: break; // GL_LINE_SMOOTH
+        case 0x0B24: break; // GL_LINE_STIPPLE
+        case 0x0DE0: break; // GL_TEXTURE_1D
+        case 0x851D: break; // GL_VERTEX_ARRAY_RANGE_APPLE
         default: glDisable(cap); break;
     }
 }

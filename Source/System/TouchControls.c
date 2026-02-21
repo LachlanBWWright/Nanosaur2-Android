@@ -144,7 +144,18 @@ void TouchControls_Init(void) {
     gToggleBtnY = gRecenterBtnY;
 
     // Check if gyroscope is available
-    gGyroAvailable = (SDL_NumSensors() > 0);
+    {
+        int sensorCount = 0;
+        SDL_SensorID *sensorList = SDL_GetSensors(&sensorCount);
+        gGyroAvailable = false;
+        if (sensorList) {
+            for (int s = 0; s < sensorCount && !gGyroAvailable; s++) {
+                if (SDL_GetSensorType(sensorList[s]) == SDL_SENSOR_GYRO)
+                    gGyroAvailable = true;
+            }
+            SDL_free(sensorList);
+        }
+    }
 
     gJoystickX = 0.0f;
     gJoystickY = 0.0f;

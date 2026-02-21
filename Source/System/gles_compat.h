@@ -114,6 +114,19 @@ typedef double GLclampd;
 #define GL_OBJECT_LINEAR   0x2401
 #define GL_EYE_LINEAR      0x2400
 
+// Texture coordinate identifiers for glTexGen
+#define GL_S               0x2000
+#define GL_T               0x2001
+#define GL_R               0x2002
+#define GL_Q               0x2003
+#define GL_COMBINE         0x8570
+#define GL_COMBINE_RGB     0x8571
+#define GL_COMBINE_ALPHA   0x8572
+#define GL_INTERPOLATE     0x8575
+#define GL_CONSTANT        0x8576
+#define GL_PRIMARY_COLOR   0x8577
+#define GL_PREVIOUS        0x8578
+
 // Missing from GLES3: polygon mode, draw buffer, attrib stack
 #define GL_FRONT_AND_BACK  0x0408
 #define GL_FRONT           0x0404
@@ -127,6 +140,18 @@ typedef double GLclampd;
 // GL_MODELVIEW_MATRIX, GL_PROJECTION_MATRIX
 #define GL_MODELVIEW_MATRIX  0x0BA6
 #define GL_PROJECTION_MATRIX 0x0BA7
+
+// Fixed-function enables not in GLES3 (handled as no-ops in bridge)
+#define GL_COLOR_LOGIC_OP          0x0BF2
+#define GL_LINE_SMOOTH             0x0B20
+#define GL_LINE_STIPPLE            0x0B24
+#define GL_RESCALE_NORMAL          0x803A
+#define GL_TEXTURE_1D              0x0DE0
+#define GL_VERTEX_ARRAY_RANGE_APPLE 0x851D
+
+// Missing GL error codes in GLES3
+#define GL_STACK_OVERFLOW          0x0503
+#define GL_STACK_UNDERFLOW         0x0504
 
 // Bridge function declarations
 #ifdef __cplusplus
