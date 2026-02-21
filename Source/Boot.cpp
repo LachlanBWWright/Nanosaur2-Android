@@ -103,11 +103,9 @@ static void Boot(int argc, char** argv)
 	SDL_SetLogPriorities(SDL_LOG_PRIORITY_INFO);
 #endif
 
-	// Start our "machine"
-	Pomme::Init();
-
 #ifdef __ANDROID__
-    // On Android, HOME is not set. Set it to the internal storage path.
+    // Set HOME before Pomme::Init() — Pomme uses getenv("HOME") to locate prefs.
+    // On Android HOME is not set by the OS; use internal storage.
     if (!getenv("HOME")) {
         const char* internalPath = SDL_GetAndroidInternalStoragePath();
         if (internalPath) {
@@ -125,6 +123,9 @@ static void Boot(int argc, char** argv)
     }
 #endif
 
+	// Start our "machine"
+	Pomme::Init();
+
 	// Find path to game data folder
 #ifdef __ANDROID__
 	// On Android, extract APK assets to internal storage before locating data
@@ -133,7 +134,7 @@ static void Boot(int argc, char** argv)
 	const char* executablePath = argc > 0 ? argv[0] : NULL;
 	fs::path dataPath = FindGameData(executablePath);
 
-	// Load game prefs before starting
+	// Load game prefs before starting (needed for antialias level before window creation)
 	LoadPrefs();
 
 retryVideo:

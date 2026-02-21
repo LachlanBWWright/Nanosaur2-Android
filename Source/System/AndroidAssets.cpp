@@ -365,9 +365,11 @@ static bool EnsureDir(const char* path) {
 }
 
 static bool CopyAssetFile(const char* relPath, const char* destBase) {
-    char srcPath[1024];
+    // APK asset path: assets.srcDirs("../../Data") places Data/ contents at APK root,
+    // so the asset is accessible as just relPath (e.g. "System/gamecontrollerdb.txt"),
+    // NOT as "Data/System/gamecontrollerdb.txt".
+    const char* srcPath = relPath;
     char destPath[1024];
-    snprintf(srcPath,  sizeof(srcPath),  "Data/%s", relPath);
     snprintf(destPath, sizeof(destPath), "%s/Data/%s", destBase, relPath);
 
     // Create parent directories

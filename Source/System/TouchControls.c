@@ -335,9 +335,29 @@ float TouchControls_GetJoystickY(void) {
 
 bool TouchControls_IsButtonPressed(int gameNeed) {
     for (int i = 0; i < gNumButtons; i++) {
-        if (gButtons[i].gameNeed == gameNeed && gButtons[i].pressed)
-            return true;
+        if (gButtons[i].pressed) {
+            if (gButtons[i].gameNeed == gameNeed) return true;
+            // Emulate gamepad dual-function buttons (same button serves different purposes
+            // in-game vs. in menus, matching the default gamepad bindings in InputDefaults.c).
+            // GB(SOUTH)  = Jetpack in-game  / UIConfirm in menus
+            // GB(WEST)   = Fire in-game     / UIDelete in menus
+            // GB(EAST)   = NextWeapon       / UIBack in menus
+            if (gButtons[i].gameNeed == kNeed_Jetpack  && gameNeed == kNeed_UIConfirm) return true;
+            if (gButtons[i].gameNeed == kNeed_Fire     && gameNeed == kNeed_UIDelete)  return true;
+            if (gButtons[i].gameNeed == kNeed_NextWeapon && gameNeed == kNeed_UIBack)  return true;
+        }
     }
+    // Pause button doubles as UIPause
+    if (gameNeed == kNeed_UIPause && gPauseBtnPressed) {
+        gPauseBtnPressed = false;
+        return true;
+    }
+    // Joystick D-pad emulation for menu navigation (digital thresholded)
+    float jx = gJoystickX, jy = gJoystickY;
+    if (gameNeed == kNeed_UIUp    && jy < -0.5f) return true;
+    if (gameNeed == kNeed_UIDown  && jy >  0.5f) return true;
+    if (gameNeed == kNeed_UILeft  && jx < -0.5f) return true;
+    if (gameNeed == kNeed_UIRight && jx >  0.5f) return true;
     return false;
 }
 

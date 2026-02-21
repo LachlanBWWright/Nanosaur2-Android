@@ -1235,6 +1235,42 @@ void* GLES_ConvertTextureFormat(
         *type = GL_UNSIGNED_BYTE;
         return dst;
     }
+    // GL_RGBA + GL_UNSIGNED_INT_8_8_8_8_REV -> GL_RGBA + GL_UNSIGNED_BYTE
+    // Big-endian Mac stored RGBA+8_8_8_8_REV as [A,B,G,R] bytes per pixel.
+    // Rearrange to [R,G,B,A] for GLES3.
+    if (*format == GL_RGBA && *type == 0x8367) { // 0x8367 = GL_UNSIGNED_INT_8_8_8_8_REV
+        int n = width * height;
+        unsigned char *dst = (unsigned char*)malloc(n * 4);
+        const unsigned char *src = (const unsigned char*)pixels;
+        for (int i = 0; i < n; i++) {
+            dst[i*4+0] = src[i*4+3]; // R ← byte[3]
+            dst[i*4+1] = src[i*4+2]; // G ← byte[2]
+            dst[i*4+2] = src[i*4+1]; // B ← byte[1]
+            dst[i*4+3] = src[i*4+0]; // A ← byte[0]
+        }
+        *internalFormat = GL_RGBA;
+        *format = GL_RGBA;
+        *type = GL_UNSIGNED_BYTE;
+        return dst;
+    }
+    // GL_RGBA + GL_UNSIGNED_SHORT_1_5_5_5_REV -> GL_RGBA + GL_UNSIGNED_BYTE
+    // GLES3 does not support the REV variant; expand to RGBA bytes.
+    if (*format == GL_RGBA && *type == 0x8366) { // 0x8366 = GL_UNSIGNED_SHORT_1_5_5_5_REV
+        int n = width * height;
+        unsigned char *dst = (unsigned char*)malloc(n * 4);
+        const unsigned short *src = (const unsigned short*)pixels;
+        for (int i = 0; i < n; i++) {
+            unsigned short px = src[i];
+            dst[i*4+0] = (unsigned char)(((px >> 11) & 0x1F) * 255 / 31); // R
+            dst[i*4+1] = (unsigned char)(((px >>  6) & 0x1F) * 255 / 31); // G
+            dst[i*4+2] = (unsigned char)(((px >>  1) & 0x1F) * 255 / 31); // B
+            dst[i*4+3] = (unsigned char)((px & 0x01) ? 255 : 0);           // A
+        }
+        *internalFormat = GL_RGBA;
+        *format = GL_RGBA;
+        *type = GL_UNSIGNED_BYTE;
+        return dst;
+    }
     return NULL;
 }
 
