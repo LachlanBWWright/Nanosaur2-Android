@@ -1,6 +1,11 @@
 name: Make Release Builds
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
 
 jobs:
   build-linux-appimage:
@@ -86,3 +91,74 @@ jobs:
           name: ${{env.ARTIFACT_NAME}}
           path: dist/
           compression-level: 0
+
+  build-wasm:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: 'recursive'}
+      - name: Install Emscripten SDK
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git /opt/emsdk
+          /opt/emsdk/emsdk install latest
+          /opt/emsdk/emsdk activate latest
+      - name: Get artifact name
+        run: |
+          source /opt/emsdk/emsdk_env.sh
+          echo "ARTIFACT_NAME=$(python3 build.py --print-artifact-name --wasm)" >> $GITHUB_ENV
+      - name: Download SDL source
+        run: |
+          source /opt/emsdk/emsdk_env.sh
+          python3 build.py --dependencies --wasm
+      - name: Configure (emcmake)
+        run: |
+          source /opt/emsdk/emsdk_env.sh
+          python3 build.py --configure --wasm
+      - name: Build (emmake)
+        run: |
+          source /opt/emsdk/emsdk_env.sh
+          python3 build.py --build --wasm
+      - name: Package
+        run: |
+          source /opt/emsdk/emsdk_env.sh
+          python3 build.py --package --wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.ARTIFACT_NAME}}
+          path: dist/
+          compression-level: 0
+
+  # Create or update a GitHub release with all built artifacts
+  release:
+    needs: [build-linux-appimage, build-windows, build-macos, build-wasm]
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts/
+          merge-multiple: true
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Create/update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag == 'latest' && 'Latest Build' || steps.tag.outputs.tag }}
+          prerelease: ${{ steps.tag.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          files: release-artifacts/**/*
+

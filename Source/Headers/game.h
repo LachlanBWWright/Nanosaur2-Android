@@ -204,3 +204,10 @@ extern	uint32_t				gGameFrameNum;
 extern	uint32_t				gGlobalMaterialFlags;
 extern	uint32_t				gTerrainPolygonSizeInt;
 extern	uint32_t 				gAutoFadeStatusBits;
+
+// Command-line / URL-parameter options for direct level loading
+extern	int						gCmdLevelNum;				// -1 = use menu; >=0 = jump directly to this level
+extern	char					gCmdTerrainOverridePath[512];	// if set, override terrain file for the current level
+extern	FSSpec					gCmdTerrainOverrideSpec;		// FSSpec equivalent of gCmdTerrainOverridePath
+
+void Boot_UpdateTerrainOverrideSpec(void);	// call this before loading terrain to convert path -> FSSpec

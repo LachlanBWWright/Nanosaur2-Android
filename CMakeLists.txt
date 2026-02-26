@@ -28,7 +28,7 @@ if(WIN32 OR APPLE)
 	# Don't warn
 elseif(SANITIZE)
 	message("Sanitizers enabled")
-else()
+elseif(NOT EMSCRIPTEN)
 	message("Sanitizers disabled (pass -DSANITIZE=1 to enable)")
 endif()
 
@@ -95,7 +95,9 @@ endif()
 
 add_subdirectory(extern/Pomme)
 
-find_package(OpenGL REQUIRED)
+if(NOT EMSCRIPTEN)
+	find_package(OpenGL REQUIRED)
+endif()
 
 #------------------------------------------------------------------------------
 # EXECUTABLE TARGET
@@ -197,7 +199,7 @@ if(SANITIZE)
 endif()
 
 # Explicitly link math lib on Linux
-if(NOT APPLE AND NOT WIN32)
+if(NOT APPLE AND NOT WIN32 AND NOT EMSCRIPTEN)
 	target_link_libraries(${GAME_TARGET} PRIVATE m)
 endif()
 
@@ -209,7 +211,12 @@ else()
 endif()
 
 # Link core dependencies
-target_link_libraries(${GAME_TARGET} PRIVATE Pomme OpenGL::GL)
+if(EMSCRIPTEN)
+	# On Emscripten, OpenGL is provided by the browser (WebGL); no separate linking needed
+	target_link_libraries(${GAME_TARGET} PRIVATE Pomme)
+else()
+	target_link_libraries(${GAME_TARGET} PRIVATE Pomme OpenGL::GL)
+endif()
 
 # Add required frameworks for KillMacMouseAcceleration
 if(APPLE)
@@ -311,3 +318,48 @@ endif()
 
 # Copy documentation to output folder
 configure_file(${CMAKE_SOURCE_DIR}/packaging/ReadMe.txt.in ${CMAKE_CURRENT_BINARY_DIR}/ReadMe.txt)
+
+#------------------------------------------------------------------------------
+# EMSCRIPTEN / WEBASSEMBLY
+#------------------------------------------------------------------------------
+
+if(EMSCRIPTEN)
+	# Output to .html/.js/.wasm bundle
+	set_target_properties(${GAME_TARGET} PROPERTIES SUFFIX ".html")
+
+	# Use a custom HTML shell from packaging/wasm/
+	set(WASM_SHELL "${CMAKE_SOURCE_DIR}/packaging/wasm/shell.html")
+
+	set(EMSCRIPTEN_LINK_FLAGS
+		# Allow the heap to grow as needed (game allocates significant memory)
+		"-s ALLOW_MEMORY_GROWTH=1"
+		"-s MAXIMUM_MEMORY=512mb"
+		# Export the C functions marked EMSCRIPTEN_KEEPALIVE
+		"-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']"
+		"-s EXPORTED_FUNCTIONS=['_main']"
+		# Embed the game data (Data/ directory) into the wasm bundle
+		"--preload-file ${GAME_DATADIR}@/Data"
+		# Use requestAnimationFrame for the main loop (vsync, battery-efficient)
+		"-s ENVIRONMENT=web"
+		# Custom HTML shell
+		"--shell-file ${WASM_SHELL}"
+	)
+
+	# Convert list to space-separated string for linker flags
+	string(JOIN " " EMSCRIPTEN_LINK_FLAGS_STR ${EMSCRIPTEN_LINK_FLAGS})
+	set_target_properties(${GAME_TARGET} PROPERTIES LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS_STR}")
+
+	# Also copy the generated .html/.js/.wasm/.data to the dist dir during POST_BUILD
+	add_custom_command(TARGET ${GAME_TARGET} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/dist/wasm"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.html"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.js"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.wasm"
+			"${CMAKE_SOURCE_DIR}/dist/wasm/"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/packaging/wasm/shell.html"
+			"${CMAKE_SOURCE_DIR}/dist/wasm/index.html"
+		COMMENT "Copying WebAssembly build outputs to dist/wasm/"
+	)
+endif()
