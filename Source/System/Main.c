@@ -539,307 +539,306 @@ OGLSetupInputType	viewDef;
 // Per-frame tick body used by Emscripten's main loop callback
 static void PlayLevelTick(void)
 {
-float fps;
+	float fps;
 
-/* INPUT */
+			/* INPUT */
 
-DoSDLMaintenance();
+	DoSDLMaintenance();
 
-if (gGamePaused)
-{
-MoveObjects();
-CalcFramesPerSecond();
-DoPlayerTerrainUpdate();
-OGL_DrawScene(DrawLevelCallback);
-return;
-}
+	if (gGamePaused)
+	{
+		MoveObjects();
+		CalcFramesPerSecond();
+		DoPlayerTerrainUpdate();
+		OGL_DrawScene(DrawLevelCallback);
+		return;
+	}
 
-for (int i = 0; i < gNumPlayers; i++)
-UpdatePlayerSteering(i);
+	for (int i = 0; i < gNumPlayers; i++)
+		UpdatePlayerSteering(i);
 
-/* MOVE OBJECTS & UPDATE TERRAIN & DRAW */
+			/* MOVE OBJECTS & UPDATE TERRAIN & DRAW */
 
-MoveEverything();
-DoPlayerTerrainUpdate();
-OGL_DrawScene(DrawLevelCallback);
+	MoveEverything();
+	DoPlayerTerrainUpdate();
+	OGL_DrawScene(DrawLevelCallback);
 
-/*************************/
-/* UPDATE FPS AND TIMERS */
-/*************************/
+		/*************************/
+		/* UPDATE FPS AND TIMERS */
+		/*************************/
 
-CalcFramesPerSecond();
-fps = gFramesPerSecondFrac;
+	CalcFramesPerSecond();
+	fps = gFramesPerSecondFrac;
 
-gGameFrameNum++;
-gGameLevelTimer += fps;
-gDisableHiccupTimer = false;
+	gGameFrameNum++;
+	gGameLevelTimer += fps;
+	gDisableHiccupTimer = false;
 
-/***************************/
-/* SEE IF RESET PLAYER NOW */
-/***************************/
+			/***************************/
+			/* SEE IF RESET PLAYER NOW */
+			/***************************/
 
-for (int i = 0; i < gNumPlayers; i++)
-{
-if (gPlayerIsDead[i])
-{
-floatoldTimer = gDeathTimer[i];
-gDeathTimer[i] -= fps;
-if (gDeathTimer[i] <= 0.0f)
-{
-const float fadeOutSpeed = 4.0f;
-if (oldTimer > 0.0f)
-{
-if (gNumPlayers > 1 || gPlayerInfo[i].numFreeLives > 0)
-{
-MakeFadeEvent(kFadeFlags_Out | (kFadeFlags_P1<<i), fadeOutSpeed);
-}
-}
-else if (gDeathTimer[i] < -(1.0f / fadeOutSpeed))
-{
-ResetPlayerAtBestCheckpoint(i);
-}
-}
-}
-}
+	for (int i = 0; i < gNumPlayers; i++)
+	{
+		if (gPlayerIsDead[i])
+		{
+			float	oldTimer = gDeathTimer[i];
+			gDeathTimer[i] -= fps;
+			if (gDeathTimer[i] <= 0.0f)
+			{
+				const float fadeOutSpeed = 4.0f;
+				if (oldTimer > 0.0f)
+				{
+					if (gNumPlayers > 1 || gPlayerInfo[i].numFreeLives > 0)
+					{
+						MakeFadeEvent(kFadeFlags_Out | (kFadeFlags_P1<<i), fadeOutSpeed);
+					}
+				}
+				else if (gDeathTimer[i] < -(1.0f / fadeOutSpeed))
+				{
+					ResetPlayerAtBestCheckpoint(i);
+				}
+			}
+		}
+	}
 
-/*****************/
-/* SEE IF PAUSED */
-/*****************/
+		/*****************/
+		/* SEE IF PAUSED */
+		/*****************/
 
-if (IsNeedDown(kNeed_UIPause, ANY_PLAYER))
-{
-DoPaused();
-}
+	if (IsNeedDown(kNeed_UIPause, ANY_PLAYER))
+	{
+		DoPaused();
+	}
 
-/* LEVEL CHEAT */
+			/* LEVEL CHEAT */
 
-if ((IsKeyActive(SDL_SCANCODE_LGUI) || IsKeyActive(SDL_SCANCODE_RGUI))
-&& IsKeyDown(SDL_SCANCODE_F10))
-{
-gLevelCompleted = true;
-}
+	if ((IsKeyActive(SDL_SCANCODE_LGUI) || IsKeyActive(SDL_SCANCODE_RGUI))
+		&& IsKeyDown(SDL_SCANCODE_F10))
+	{
+		gLevelCompleted = true;
+	}
 
-/*****************************/
-/* SEE IF LEVEL IS COMPLETED */
-/*****************************/
+			/*****************************/
+			/* SEE IF LEVEL IS COMPLETED */
+			/*****************************/
 
-if (gGameOver)
-{
-emscripten_cancel_main_loop();
-return;
-}
+	if (gGameOver)
+	{
+		emscripten_cancel_main_loop();
+		return;
+	}
 
-if (gLevelCompleted)
-{
-gLevelCompletedCoolDownTimer -= fps;
-if (gLevelCompletedCoolDownTimer <= 0.0f)
-emscripten_cancel_main_loop();
-}
+	if (gLevelCompleted)
+	{
+		gLevelCompletedCoolDownTimer -= fps;
+		if (gLevelCompletedCoolDownTimer <= 0.0f)
+			emscripten_cancel_main_loop();
+	}
 }
 
 static void PlayLevel(void)
 {
-/* PREP STUFF */
+		/* PREP STUFF */
 
-DoSDLMaintenance();
-CalcFramesPerSecond();
-CalcFramesPerSecond();
+	DoSDLMaintenance();
+	CalcFramesPerSecond();
+	CalcFramesPerSecond();
 
-MakeFadeEvent(kFadeFlags_In, 1.0);
+	MakeFadeEvent(kFadeFlags_In, 1.0);
 
-GrabMouse(true);
+	GrabMouse(true);
 
-// emscripten_set_main_loop runs PlayLevelTick repeatedly, yielding to the browser
-// between each call.  The '1' means simulate infinite loop (blocks until cancelled).
-emscripten_set_main_loop(PlayLevelTick, 0, 1);
+	// emscripten_set_main_loop runs PlayLevelTick repeatedly, yielding to the browser
+	// between each call.  The '1' means simulate infinite loop (blocks until cancelled).
+	emscripten_set_main_loop(PlayLevelTick, 0, 1);
 
-GrabMouse(false);
+	GrabMouse(false);
 
-// Skip the blocking fade-out on Emscripten; just snap to black
-gGammaFadeFrac = 0;
+	// Skip the blocking fade-out on Emscripten; just snap to black
+	gGammaFadeFrac = 0;
 }
-
 #else // !__EMSCRIPTEN__
 
 static void PlayLevel(void)
 {
-floatfps;
+float	fps;
 
 
-/* PREP STUFF */
+		/* PREP STUFF */
 
-DoSDLMaintenance();
-CalcFramesPerSecond();
-CalcFramesPerSecond();
+	DoSDLMaintenance();
+	CalcFramesPerSecond();
+	CalcFramesPerSecond();
 
-MakeFadeEvent(kFadeFlags_In, 1.0);
+	MakeFadeEvent(kFadeFlags_In, 1.0);
 
-if (gTimeDemo)
-{
-gTimeDemoStartTime = TickCount();
-}
-
-
-GrabMouse(true);
+	if (gTimeDemo)
+	{
+		gTimeDemoStartTime = TickCount();
+	}
 
 
-/******************/
-/* MAIN GAME LOOP */
-/******************/
-
-while(true)
-{
-/* INPUT */
-
-DoSDLMaintenance();
+	GrabMouse(true);
 
 
-if (gGamePaused)
-{
-MoveObjects();
-CalcFramesPerSecond();
-DoPlayerTerrainUpdate();
-OGL_DrawScene(DrawLevelCallback);
-continue;
-}
+	/******************/
+	/* MAIN GAME LOOP */
+	/******************/
+
+	while(true)
+	{
+				/* INPUT */
+
+		DoSDLMaintenance();
 
 
-for (int i = 0; i < gNumPlayers; i++)
-UpdatePlayerSteering(i);
-
-/* MOVE OBJECTS & UPDATE TERRAIN & DRAW */
-
-MoveEverything();
-DoPlayerTerrainUpdate();
-OGL_DrawScene(DrawLevelCallback);
-
-
-/*************************/
-/* UPDATE FPS AND TIMERS */
-/*************************/
-
-CalcFramesPerSecond();
-fps = gFramesPerSecondFrac;
-
-gGameFrameNum++;
-gGameLevelTimer += fps;
-gDisableHiccupTimer = false;able this after the 1st frame
+		if (gGamePaused)
+		{
+			MoveObjects();
+			CalcFramesPerSecond();
+			DoPlayerTerrainUpdate();
+			OGL_DrawScene(DrawLevelCallback);
+			continue;
+		}
 
 
-/***************************/
-/* SEE IF RESET PLAYER NOW */
-/***************************/
+		for (int i = 0; i < gNumPlayers; i++)
+			UpdatePlayerSteering(i);
 
-for (int i = 0; i < gNumPlayers; i++)// check all players
-{
-if (gPlayerIsDead[i])// is this player dead?
-{
-floatoldTimer = gDeathTimer[i];
-gDeathTimer[i] -= fps;
-if (gDeathTimer[i] <= 0.0f)// is it time to reincarnate player?
-{
-const float fadeOutSpeed = 4.0f;
+				/* MOVE OBJECTS & UPDATE TERRAIN & DRAW */
 
-if (oldTimer > 0.0f)// if just now crossed zero then start fade
-{
-if (gNumPlayers > 1
-|| gPlayerInfo[i].numFreeLives > 0)// ...only if hasn't lost adventure mode yet (gameover will freeze-frame fadeout)
-{
-MakeFadeEvent(kFadeFlags_Out | (kFadeFlags_P1<<i), fadeOutSpeed);
-}
-}
-else if (gDeathTimer[i] < -(1.0f / fadeOutSpeed))// once fully faded out reset player @ checkpoint
-{
-ResetPlayerAtBestCheckpoint(i);
-}
-}
-}
-}
+		MoveEverything();
+		DoPlayerTerrainUpdate();
+		OGL_DrawScene(DrawLevelCallback);
 
 
-/*****************/
-/* SEE IF PAUSED */
-/*****************/
+		/*************************/
+		/* UPDATE FPS AND TIMERS */
+		/*************************/
 
-if (IsNeedDown(kNeed_UIPause, ANY_PLAYER))// do regular pause mode
-{
-DoPaused();
-}
+		CalcFramesPerSecond();
+		fps = gFramesPerSecondFrac;
+
+		gGameFrameNum++;
+		gGameLevelTimer += fps;
+		gDisableHiccupTimer = false;									// reenable this after the 1st frame
+
+
+				/***************************/
+				/* SEE IF RESET PLAYER NOW */
+				/***************************/
+
+		for (int i = 0; i < gNumPlayers; i++)							// check all players
+		{
+			if (gPlayerIsDead[i])										// is this player dead?
+			{
+				float	oldTimer = gDeathTimer[i];
+				gDeathTimer[i] -= fps;
+				if (gDeathTimer[i] <= 0.0f)								// is it time to reincarnate player?
+				{
+					const float fadeOutSpeed = 4.0f;
+
+					if (oldTimer > 0.0f)								// if just now crossed zero then start fade
+					{
+						if (gNumPlayers > 1
+							|| gPlayerInfo[i].numFreeLives > 0)		// ...only if hasn't lost adventure mode yet (gameover will freeze-frame fadeout)
+						{
+							MakeFadeEvent(kFadeFlags_Out | (kFadeFlags_P1<<i), fadeOutSpeed);
+						}
+					}
+					else if (gDeathTimer[i] < -(1.0f / fadeOutSpeed))	// once fully faded out reset player @ checkpoint
+					{
+						ResetPlayerAtBestCheckpoint(i);
+					}
+				}
+			}
+		}
+
+
+		/*****************/
+		/* SEE IF PAUSED */
+		/*****************/
+
+		if (IsNeedDown(kNeed_UIPause, ANY_PLAYER))						// do regular pause mode
+		{
+			DoPaused();
+		}
 
 #if __APPLE__
-if (IsCmdQDown())
-{
-DoReallyQuit();
-}
+		if (IsCmdQDown())
+		{
+			DoReallyQuit();
+		}
 #endif
 
 #if 0
-if (GetNewKeyState(KEY_F15))// do screen-saver-safe paused mode
-{
-glFinish();
+		if (GetNewKeyState(KEY_F15))									// do screen-saver-safe paused mode
+		{
+			glFinish();
 
-do
-{
-EventRecorde;
-WaitNextEvent(everyEvent,&e, 0, 0);
-UpdateInput();
-}while(!GetNewKeyState(KEY_F15));
+			do
+			{
+				EventRecord	e;
+				WaitNextEvent(everyEvent,&e, 0, 0);
+				UpdateInput();
+			}while(!GetNewKeyState(KEY_F15));
 
-CalcFramesPerSecond();
-}
+			CalcFramesPerSecond();
+		}
 #endif
 
-/* LEVEL CHEAT */
+				/* LEVEL CHEAT */
 
-if ((IsKeyActive(SDL_SCANCODE_LGUI) || IsKeyActive(SDL_SCANCODE_RGUI))
-&& IsKeyDown(SDL_SCANCODE_F10))// see if skip level
-{
-gLevelCompleted = true;
-//gSkipLevelIntro = true;
-}
-
-
-
-/*****************************/
-/* SEE IF LEVEL IS COMPLETED */
-/*****************************/
-
-if (gGameOver)// if we need immediate abort, then bail now
-break;
-
-if (gLevelCompleted)
-{
-gLevelCompletedCoolDownTimer -= fps;e, but wait for cool-down timer before bailing
-if (gLevelCompletedCoolDownTimer <= 0.0f)
-break;
-}
-}
-
-GrabMouse(false);
-
-if (gGammaFadeFrac > 0)// only fade out if we haven't called MakeFadeEvent(kFadeFlags_Out) already
-{
-gGameViewInfoPtr->fadeSound = true;
-OGL_FadeOutScene(DrawLevelCallback, DoPlayerTerrainUpdate);
-}
-
-if (gTimeDemo)
-{
-uint32_tticks;
-floatseconds;
-
-gTimeDemoEndTime = TickCount();
-ticks = gTimeDemoEndTime - gTimeDemoStartTime;
-seconds = (float)ticks / 60.0f;
-
-//ShowSystemErr_NonFatal(seconds);
-//ShowSystemErr_NonFatal(gGameFrameNum / seconds);
-
-ShowTimeDemoResults(gGameFrameNum, seconds, (float)gGameFrameNum / seconds);
+		if ((IsKeyActive(SDL_SCANCODE_LGUI) || IsKeyActive(SDL_SCANCODE_RGUI))
+			&& IsKeyDown(SDL_SCANCODE_F10))									// see if skip level
+		{
+			gLevelCompleted = true;
+//			gSkipLevelIntro = true;
+		}
 
 
-ExitToShell();
-}
+
+				/*****************************/
+				/* SEE IF LEVEL IS COMPLETED */
+				/*****************************/
+
+		if (gGameOver)													// if we need immediate abort, then bail now
+			break;
+
+		if (gLevelCompleted)
+		{
+			gLevelCompletedCoolDownTimer -= fps;						// game is done, but wait for cool-down timer before bailing
+			if (gLevelCompletedCoolDownTimer <= 0.0f)
+				break;
+		}
+	}
+
+	GrabMouse(false);
+
+	if (gGammaFadeFrac > 0)												// only fade out if we haven't called MakeFadeEvent(kFadeFlags_Out) already
+	{
+		gGameViewInfoPtr->fadeSound = true;
+		OGL_FadeOutScene(DrawLevelCallback, DoPlayerTerrainUpdate);
+	}
+
+	if (gTimeDemo)
+	{
+		uint32_t	ticks;
+		float	seconds;
+
+		gTimeDemoEndTime = TickCount();
+		ticks = gTimeDemoEndTime - gTimeDemoStartTime;
+		seconds = (float)ticks / 60.0f;
+
+//		ShowSystemErr_NonFatal(seconds);
+//		ShowSystemErr_NonFatal(gGameFrameNum / seconds);
+
+		ShowTimeDemoResults(gGameFrameNum, seconds, (float)gGameFrameNum / seconds);
+
+
+		ExitToShell();
+	}
 
 }
 
