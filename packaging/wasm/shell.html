@@ -136,13 +136,12 @@
 
 <div id="status-bar">Ready.</div>
 
+<!-- All custom JavaScript is in ONE block so Emscripten's HTML minifier
+     cannot accidentally merge it with the Emscripten module loader script. -->
 <script>
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
   var Module = {
-    canvas: (function() { return document.getElementById('canvas'); })(),
+    canvas: document.getElementById('canvas'),
 
-    // Called by Emscripten with download progress
     setStatus: function(text) {
       var el = document.getElementById('status-bar');
       if (el) el.textContent = text || '';
@@ -150,50 +149,29 @@
       if (pt) pt.textContent = text || '';
     },
 
-    // Called when the WASM module is ready
     onRuntimeInitialized: function() {
       var overlay = document.getElementById('overlay');
       if (overlay) overlay.style.display = 'none';
-
       var cheat = document.getElementById('cheat-panel');
       if (cheat) cheat.style.display = 'block';
-
       var btn = document.getElementById('play-btn');
       if (btn) { btn.textContent = 'Game Running'; btn.disabled = true; }
-
       updateFenceStatus();
     },
 
-    // Suppress the default Emscripten "please wait" overlay
     noInitialRun: true,
   };
-
-  // ── Start the game once the user clicks Play ──────────────────────────────
 
   var gameStarted = false;
 
   function startGame() {
     if (gameStarted) return;
     gameStarted = true;
-
     var levelNum = parseInt(document.getElementById('level-select').value, 10);
     if (isNaN(levelNum) || levelNum < 0 || levelNum > 8) levelNum = 0;
-
-    // Pass level number as a query param — Boot.cpp reads it via EM_ASM_INT
-    // We can't easily change window.location after load, so we pass it via
-    // a Module global instead:
-    Module._gCmdLevelNum = levelNum;   // direct memory write fallback
-    if (typeof Module.ccall === 'function') {
-      // Already initialised — shouldn't happen here, but defensive
-    }
-
-    // Actually run main()
+    Module._gCmdLevelNum = levelNum;
     Module.callMain([]);
   }
-
-  document.getElementById('play-btn').addEventListener('click', startGame);
-
-  // ── Cheat commands ────────────────────────────────────────────────────────
 
   function setFenceCollisions(enabled) {
     if (typeof Module.ccall !== 'function') { alert('Game not running yet.'); return; }
@@ -204,35 +182,24 @@
   function updateFenceStatus() {
     if (typeof Module.ccall !== 'function') return;
     var on = Module.ccall('Nanosaur2_GetFenceCollisionsEnabled', 'number', [], []);
-    document.getElementById('fence-status').textContent = on ? '✅ enabled' : '❌ disabled';
+    document.getElementById('fence-status').textContent = on ? '\u2705 enabled' : '\u274C disabled';
   }
 
-  // ── Mark the Play button as ready once Emscripten is bootstrapped ────────
-  // We override noInitialRun so main() isn't called automatically; the user
-  // must click Play.  We hook into the Module.onRuntimeInitialized callback
-  // above to flip the button.  But we need a separate signal for "WASM loaded".
+  document.getElementById('play-btn').addEventListener('click', startGame);
 
-  window.addEventListener('load', function() {
-    // Unlock audio: browsers require a user gesture before sound is allowed.
-    // We piggyback on the Play button click for this.
-  });
-</script>
-
-<!-- Emscripten-generated JavaScript goes here -->
-{{{ SCRIPT }}}
-
-<script>
-  // After Emscripten script loads, enable the Play button
-  (function waitForEmscripten() {
+  // Poll until Emscripten has loaded the WASM and enable the Play button.
+  (function waitForModule() {
     if (typeof Module !== 'undefined' && Module.FS) {
       var btn = document.getElementById('play-btn');
-      btn.textContent = 'Play';
-      btn.disabled = false;
+      if (btn && btn.textContent === 'Loading\u2026') {
+        btn.textContent = 'Play';
+        btn.disabled = false;
+      }
     } else {
-      setTimeout(waitForEmscripten, 200);
+      setTimeout(waitForModule, 200);
     }
   })();
 </script>
-
+{{{ SCRIPT }}}
 </body>
 </html>

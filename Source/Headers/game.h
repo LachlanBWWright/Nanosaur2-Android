@@ -18,8 +18,17 @@
 
 #include <Pomme.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
-#include <SDL3/SDL_opengl_glext.h>
+#ifdef __EMSCRIPTEN__
+	// WebGL/GLES2 path: include our fixed-function compatibility layer instead
+	// of the desktop OpenGL headers.  The compat layer provides a GLSL ES 1.00
+	// shader-based implementation of the OpenGL 1.x pipeline (lighting, fog,
+	// alpha-test, matrix stacks, immediate mode, vertex arrays).
+#	include <SDL3/SDL_opengles2.h>
+#	include "gl_compat.h"
+#else
+#	include <SDL3/SDL_opengl.h>
+#	include <SDL3/SDL_opengl_glext.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 

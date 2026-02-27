@@ -204,7 +204,10 @@ if(NOT APPLE AND NOT WIN32 AND NOT EMSCRIPTEN)
 endif()
 
 # Link SDL
-if(NOT SDL_STATIC)
+if(EMSCRIPTEN)
+	# Emscripten requires static SDL
+	target_link_libraries(${GAME_TARGET} PRIVATE SDL3::SDL3-static)
+elseif(NOT SDL_STATIC)
 	target_link_libraries(${GAME_TARGET} PRIVATE SDL3::SDL3)
 else()
 	target_link_libraries(${GAME_TARGET} PRIVATE SDL3::SDL3-static)
@@ -341,6 +344,10 @@ if(EMSCRIPTEN)
 		"--preload-file ${GAME_DATADIR}@/Data"
 		# Use requestAnimationFrame for the main loop (vsync, battery-efficient)
 		"-s ENVIRONMENT=web"
+		# Disable HTML minification: html-minifier-terser can produce nested <script>
+		# tags when a large JS preloader is injected between script blocks.
+		# The WASM and JS are already optimised by emcc -O3; the HTML size is negligible.
+		"-s MINIFY_HTML=0"
 		# Custom HTML shell
 		"--shell-file ${WASM_SHELL}"
 	)

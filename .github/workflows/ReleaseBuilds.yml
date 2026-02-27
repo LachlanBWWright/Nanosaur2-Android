@@ -3,7 +3,7 @@ name: Make Release Builds
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ '**' ]   # Build on every branch push
     tags:
       - 'v*'
 

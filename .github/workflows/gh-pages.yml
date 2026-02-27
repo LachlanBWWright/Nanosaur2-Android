@@ -2,8 +2,8 @@ name: Deploy WebAssembly to GitHub Pages
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
+  push:    # Trigger on ALL branches so every push gets a Pages preview
+    branches: [ '**' ]
 
 # Allow only one concurrent deployment
 concurrency:
@@ -29,7 +29,7 @@ jobs:
           /opt/emsdk/emsdk install latest
           /opt/emsdk/emsdk activate latest
 
-      - name: Download SDL source
+      - name: Build SDL3 for Emscripten and install
         run: |
           source /opt/emsdk/emsdk_env.sh
           python3 build.py --dependencies --wasm
@@ -47,13 +47,14 @@ jobs:
       - name: Assemble GitHub Pages site
         run: |
           mkdir -p _site
-          # Copy the wasm output files from the build directory
           BUILD_DIR="build-wasm"
-          cp "$BUILD_DIR/Nanosaur2.js"   _site/ || true
-          cp "$BUILD_DIR/Nanosaur2.wasm" _site/ || true
-          cp "$BUILD_DIR/Nanosaur2.data" _site/ || true
-          # Use our custom HTML shell as the index page
-          cp packaging/wasm/shell.html   _site/index.html
+          # Copy the compiled WebAssembly artefacts
+          cp "$BUILD_DIR/Nanosaur2.js"   _site/
+          cp "$BUILD_DIR/Nanosaur2.wasm" _site/
+          cp "$BUILD_DIR/Nanosaur2.data" _site/
+          # Use the Emscripten-generated HTML (which has {{{ SCRIPT }}} properly
+          # substituted) as the index page.
+          cp "$BUILD_DIR/Nanosaur2.html" _site/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
