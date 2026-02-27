@@ -18,8 +18,17 @@
 
 #include <Pomme.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
-#include <SDL3/SDL_opengl_glext.h>
+#ifdef __EMSCRIPTEN__
+	// WebGL/GLES2 path: include our fixed-function compatibility layer instead
+	// of the desktop OpenGL headers.  The compat layer provides a GLSL ES 1.00
+	// shader-based implementation of the OpenGL 1.x pipeline (lighting, fog,
+	// alpha-test, matrix stacks, immediate mode, vertex arrays).
+#	include <SDL3/SDL_opengles2.h>
+#	include "gl_compat.h"
+#else
+#	include <SDL3/SDL_opengl.h>
+#	include <SDL3/SDL_opengl_glext.h>
+#endif
 #include <math.h>
 #include <stdlib.h>
 
@@ -204,3 +213,10 @@ extern	uint32_t				gGameFrameNum;
 extern	uint32_t				gGlobalMaterialFlags;
 extern	uint32_t				gTerrainPolygonSizeInt;
 extern	uint32_t 				gAutoFadeStatusBits;
+
+// Command-line / URL-parameter options for direct level loading
+extern	int						gCmdLevelNum;				// -1 = use menu; >=0 = jump directly to this level
+extern	char					gCmdTerrainOverridePath[512];	// if set, override terrain file for the current level
+extern	FSSpec					gCmdTerrainOverrideSpec;		// FSSpec equivalent of gCmdTerrainOverridePath
+
+void Boot_UpdateTerrainOverrideSpec(void);	// call this before loading terrain to convert path -> FSSpec

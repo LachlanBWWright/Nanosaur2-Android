@@ -5,6 +5,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include "Pomme.h"
 #include "PommeInit.h"
 #include "PommeFiles.h"
@@ -16,6 +20,25 @@ extern "C"
 	SDL_Window* gSDLWindow = nullptr;
 	FSSpec gDataSpec;
 	int gCurrentAntialiasingLevel;
+
+	// Command-line options for direct level loading (used by WebAssembly / level editor)
+	int gCmdLevelNum = -1;						// -1 = not specified; otherwise, jump to this level directly
+	char gCmdTerrainOverridePath[512] = "";		// if set, override terrain file for the current level
+	FSSpec gCmdTerrainOverrideSpec = {0};		// FSSpec equivalent of gCmdTerrainOverridePath (set during Boot)
+
+	// C-callable wrapper: converts gCmdTerrainOverridePath to gCmdTerrainOverrideSpec.
+	// Called from LoadLevel.c just before LoadPlayfield() if a terrain override is active.
+	void Boot_UpdateTerrainOverrideSpec(void)
+	{
+		if (gCmdTerrainOverridePath[0] != '\0')
+		{
+			gCmdTerrainOverrideSpec = Pomme::Files::HostPathToFSSpec(gCmdTerrainOverridePath);
+		}
+		else
+		{
+			SDL_memset(&gCmdTerrainOverrideSpec, 0, sizeof(gCmdTerrainOverrideSpec));
+		}
+	}
 }
 
 static fs::path FindGameData(const char* executablePath)
@@ -69,6 +92,44 @@ tryAgain:
 	return dataPath;
 }
 
+// Parse --level <n> and --terrain-override <path> from argv
+static void ParseCommandLineArgs(int argc, char** argv)
+{
+	for (int i = 1; i < argc; i++)
+	{
+		if (SDL_strcmp(argv[i], "--level") == 0 && i + 1 < argc)
+		{
+			gCmdLevelNum = SDL_atoi(argv[++i]);
+			if (gCmdLevelNum < 0 || gCmdLevelNum >= NUM_LEVELS)
+			{
+				SDL_Log("--level %d out of range (0..%d), ignoring.", gCmdLevelNum, NUM_LEVELS - 1);
+				gCmdLevelNum = -1;
+			}
+		}
+		else if (SDL_strcmp(argv[i], "--terrain-override") == 0 && i + 1 < argc)
+		{
+			SDL_strlcpy(gCmdTerrainOverridePath, argv[++i], sizeof(gCmdTerrainOverridePath));
+			SDL_Log("Terrain override: %s", gCmdTerrainOverridePath);
+		}
+	}
+
+#ifdef __EMSCRIPTEN__
+	// Also read level number from JavaScript (URL query parameter '?level=N')
+	if (gCmdLevelNum < 0)
+	{
+		gCmdLevelNum = EM_ASM_INT({
+			try {
+				var params = new URLSearchParams(window.location.search);
+				var v = parseInt(params.get('level'));
+				return isNaN(v) ? -1 : v;
+			} catch(e) { return -1; }
+		});
+		if (gCmdLevelNum < 0 || gCmdLevelNum >= NUM_LEVELS)
+			gCmdLevelNum = -1;
+	}
+#endif
+}
+
 static void Boot(int argc, char** argv)
 {
 	SDL_SetAppMetadata(GAME_FULL_NAME, GAME_VERSION, GAME_IDENTIFIER);
@@ -78,12 +139,20 @@ static void Boot(int argc, char** argv)
 	SDL_SetLogPriorities(SDL_LOG_PRIORITY_INFO);
 #endif
 
+	ParseCommandLineArgs(argc, argv);
+
 	// Start our "machine"
 	Pomme::Init();
 
 	// Find path to game data folder
 	const char* executablePath = argc > 0 ? argv[0] : NULL;
 	fs::path dataPath = FindGameData(executablePath);
+
+	// Convert terrain override path to FSSpec (requires Pomme to be initialized)
+	if (gCmdTerrainOverridePath[0] != '\0')
+	{
+		gCmdTerrainOverrideSpec = Pomme::Files::HostPathToFSSpec(gCmdTerrainOverridePath);
+	}
 
 	// Load game prefs before starting
 	LoadPrefs();
@@ -96,9 +165,16 @@ retryVideo:
 	}
 
 	// Create window
+#ifdef __EMSCRIPTEN__
+	// WebGL requires GLES2 context profile
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 
 	gCurrentAntialiasingLevel = gGamePrefs.antialiasingLevel;
 	if (gCurrentAntialiasingLevel != 0)
@@ -127,6 +203,11 @@ retryVideo:
 			throw std::runtime_error("Couldn't create SDL window.");
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Enable vsync via requestAnimationFrame on Emscripten (recommended by SDL3 README-emscripten)
+	SDL_GL_SetSwapInterval(1);
+#endif
 
 	// Init gamepad subsystem
 	SDL_Init(SDL_INIT_GAMEPAD);

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nanosaur 2 — WebAssembly</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    #header {
+      width: 100%;
+      max-width: 900px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #header h1 { font-size: 1.1rem; color: #8cf; }
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #controls label { font-size: 0.85rem; }
+    #controls input[type=number] {
+      width: 56px;
+      background: #333;
+      color: #ddd;
+      border: 1px solid #555;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    #canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      background: #000;
+      border: 2px solid #333;
+    }
+    /* Emscripten-generated canvas element must not have border/padding inside */
+    #canvas { border: none; padding: 0; }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      gap: 16px;
+    }
+    #overlay h2 { font-size: 1.4rem; }
+    #overlay p { font-size: 0.9rem; color: #aaa; max-width: 480px; text-align: center; }
+    button {
+      background: #2a7;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover { background: #3b8; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    #cheat-panel {
+      width: 100%;
+      max-width: 900px;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      border-top: 1px solid #333;
+      display: none;
+    }
+    #cheat-panel h3 { font-size: 0.9rem; color: #8cf; margin-bottom: 8px; }
+    .cheat-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .cheat-row label { font-size: 0.85rem; min-width: 200px; }
+    #status-bar {
+      width: 100%;
+      max-width: 900px;
+      padding: 4px 16px;
+      font-size: 0.75rem;
+      color: #666;
+      min-height: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>🦕 Nanosaur 2 — WebAssembly</h1>
+  <div id="controls">
+    <label for="level-select">Level:</label>
+    <input id="level-select" type="number" min="0" max="8" value="0" title="Level number (0=Adventure1 … 8=Flag2)">
+    <button id="play-btn" disabled>Loading…</button>
+  </div>
+</div>
+
+<div id="canvas-container">
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="overlay">
+    <h2>Nanosaur 2</h2>
+    <p>Loading game data…</p>
+    <div id="progress-text" style="font-size:0.8rem;color:#aaa;"></div>
+  </div>
+</div>
+
+<div id="cheat-panel">
+  <h3>🔧 Cheat / Debug Commands</h3>
+  <div class="cheat-row">
+    <label>Fence Collisions</label>
+    <button id="btn-fence-on"  onclick="setFenceCollisions(true)">Enable</button>
+    <button id="btn-fence-off" onclick="setFenceCollisions(false)">Disable</button>
+    <span id="fence-status" style="font-size:0.8rem;color:#aaa;"></span>
+  </div>
+</div>
+
+<div id="status-bar">Ready.</div>
+
+<!-- All custom JavaScript is in ONE block so Emscripten's HTML minifier
+     cannot accidentally merge it with the Emscripten module loader script. -->
+<script>
+  var Module = {
+    canvas: document.getElementById('canvas'),
+
+    setStatus: function(text) {
+      var el = document.getElementById('status-bar');
+      if (el) el.textContent = text || '';
+      var pt = document.getElementById('progress-text');
+      if (pt) pt.textContent = text || '';
+    },
+
+    onRuntimeInitialized: function() {
+      var overlay = document.getElementById('overlay');
+      if (overlay) overlay.style.display = 'none';
+      var cheat = document.getElementById('cheat-panel');
+      if (cheat) cheat.style.display = 'block';
+      var btn = document.getElementById('play-btn');
+      if (btn) { btn.textContent = 'Game Running'; btn.disabled = true; }
+      updateFenceStatus();
+    },
+
+    noInitialRun: true,
+  };
+
+  var gameStarted = false;
+
+  function startGame() {
+    if (gameStarted) return;
+    gameStarted = true;
+    var levelNum = parseInt(document.getElementById('level-select').value, 10);
+    if (isNaN(levelNum) || levelNum < 0 || levelNum > 8) levelNum = 0;
+    Module._gCmdLevelNum = levelNum;
+    Module.callMain([]);
+  }
+
+  function setFenceCollisions(enabled) {
+    if (typeof Module.ccall !== 'function') { alert('Game not running yet.'); return; }
+    Module.ccall('Nanosaur2_SetFenceCollisionsEnabled', null, ['number'], [enabled ? 1 : 0]);
+    updateFenceStatus();
+  }
+
+  function updateFenceStatus() {
+    if (typeof Module.ccall !== 'function') return;
+    var on = Module.ccall('Nanosaur2_GetFenceCollisionsEnabled', 'number', [], []);
+    document.getElementById('fence-status').textContent = on ? '\u2705 enabled' : '\u274C disabled';
+  }
+
+  document.getElementById('play-btn').addEventListener('click', startGame);
+
+  // Poll until Emscripten has loaded the WASM and enable the Play button.
+  (function waitForModule() {
+    if (typeof Module !== 'undefined' && Module.FS) {
+      var btn = document.getElementById('play-btn');
+      if (btn && btn.textContent === 'Loading\u2026') {
+        btn.textContent = 'Play';
+        btn.disabled = false;
+      }
+    } else {
+      setTimeout(waitForModule, 200);
+    }
+  })();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

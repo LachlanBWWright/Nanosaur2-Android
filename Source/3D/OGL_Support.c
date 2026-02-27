@@ -18,9 +18,15 @@
 /****************************/
 
 static PFNGLACTIVETEXTUREPROC gGlActiveTextureProc;
-static PFNGLCLIENTACTIVETEXTUREARBPROC gGlClientActiveTextureProc;
 #define glActiveTexture gGlActiveTextureProc
+
+#ifndef __EMSCRIPTEN__
+// glClientActiveTexture is a GLES1/OpenGL 1.3 function that doesn't exist in
+// GLES2/WebGL. On non-Emscripten platforms we look it up via GetProcAddress.
+// On Emscripten the call is handled by our gl_compat.h compatibility layer.
+static PFNGLCLIENTACTIVETEXTUREARBPROC gGlClientActiveTextureProc;
 #define glClientActiveTexture gGlClientActiveTextureProc
+#endif
 
 static void OGL_CreateDrawContext(void);
 static void OGL_DisposeDrawContext(void);
@@ -388,8 +394,15 @@ GLint			maxTexSize;
 	gGlActiveTextureProc = (PFNGLACTIVETEXTUREPROC) SDL_GL_GetProcAddress("glActiveTexture");
 	GAME_ASSERT(gGlActiveTextureProc);
 
+#ifndef __EMSCRIPTEN__
 	gGlClientActiveTextureProc = (PFNGLCLIENTACTIVETEXTUREARBPROC) SDL_GL_GetProcAddress("glClientActiveTexture");
 	GAME_ASSERT(gGlClientActiveTextureProc);
+#endif
+
+#ifdef __EMSCRIPTEN__
+	// Initialise the GLES2 fixed-function compatibility layer (shaders, VBOs, etc.)
+	COMPAT_GL_Init();
+#endif
 }
 
 /**************** OGL: NUKE DRAW CONTEXT *********************/

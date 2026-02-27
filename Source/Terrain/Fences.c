@@ -36,6 +36,7 @@ static void MakeFenceGeometry(void);
 long			gNumFences = 0;
 short			gNumFencesDrawn;
 FenceDefType	*gFenceList = nil;
+Boolean			gFenceCollisionsDisabled = false;
 
 
 static const short			gFenceTexture[NUM_FENCE_TYPES][2] =
@@ -601,6 +602,11 @@ double			radius;
 double			oldX,oldZ,newX,newZ;
 Boolean			hit = false,letGoOver, letGoUnder;
 Boolean			isEnemy;
+
+			/* SEE IF FENCE COLLISIONS ARE DISABLED (CHEAT) */
+
+	if (gFenceCollisionsDisabled)
+		return false;
 
 			/* SEE IF WE HAVE AN ENEMY */
 

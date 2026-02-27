@@ -177,8 +177,18 @@ char	path[256];
 			/****************/
 
 	{
-		SDL_snprintf(path, sizeof(path), ":Terrain:%s.ter", kLevelNames[gLevelNum]);
-		FSMakeFSSpec(gDataSpec.vRefNum, gDataSpec.parID, path, &spec);
+		Boot_UpdateTerrainOverrideSpec();  // convert path string -> FSSpec if a terrain override was set
+		if (gCmdTerrainOverrideSpec.vRefNum != 0)
+		{
+			// Use the terrain FSSpec specified via command line / WebAssembly JS interop
+			SDL_Log("Using terrain override spec");
+			spec = gCmdTerrainOverrideSpec;
+		}
+		else
+		{
+			SDL_snprintf(path, sizeof(path), ":Terrain:%s.ter", kLevelNames[gLevelNum]);
+			FSMakeFSSpec(gDataSpec.vRefNum, gDataSpec.parID, path, &spec);
+		}
 		LoadPlayfield(&spec);
 	}
 

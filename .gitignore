@@ -10,3 +10,8 @@ dist/
 .idea/
 .DS_Store
 *.user
+
+# Python
+__pycache__/
+*.pyc
+extern/SDL/
