@@ -39,6 +39,7 @@ extern void emscripten_glGetFloatv(GLenum pname, GLfloat *data);
 extern void emscripten_glGetIntegerv(GLenum pname, GLint *data);
 extern void emscripten_glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices);
 extern void emscripten_glDrawArrays(GLenum mode, GLint first, GLsizei count);
+extern void emscripten_glHint(GLenum target, GLenum mode);
 
 // ── 4×4 float matrix ─────────────────────────────────────────────────────────
 typedef struct { float m[16]; } Mat4;
@@ -634,6 +635,7 @@ void glEnable(GLenum cap) {
         case GL_TEXTURE_GEN_S: s_texgen_s = 1; break;
         case GL_TEXTURE_GEN_T: s_texgen_t = 1; break;
         case GL_NORMALIZE:   break;  // handled by per-vertex normalize in shader
+        case GL_RESCALE_NORMAL: break;  // not supported in WebGL; normalize handled in shader
         case GL_COLOR_MATERIAL: break;  // silently ignore
         default:
             // Pass through to GLES2
@@ -653,6 +655,7 @@ void glDisable(GLenum cap) {
         case GL_TEXTURE_GEN_S: s_texgen_s = 0; break;
         case GL_TEXTURE_GEN_T: s_texgen_t = 0; break;
         case GL_NORMALIZE:   break;
+        case GL_RESCALE_NORMAL: break;  // not supported in WebGL
         case GL_COLOR_MATERIAL: break;
         default:
             {
@@ -984,6 +987,15 @@ void glPolygonMode(GLenum face, GLenum mode) { (void)face; (void)mode; }
 void glPushAttrib(GLbitfield mask) { (void)mask; }
 void glPopAttrib(void) {}
 void glDrawBuffer(GLenum buf) { (void)buf; }
+
+// glHint — WebGL only supports GL_GENERATE_MIPMAP_HINT; silently ignore
+// unsupported hints like GL_FOG_HINT to prevent GL_INVALID_ENUM errors.
+void glHint(GLenum target, GLenum mode) {
+    if (target == GL_GENERATE_MIPMAP_HINT) {
+        emscripten_glHint(target, mode);
+    }
+    // All other hints (GL_FOG_HINT, etc.) are no-ops in WebGL
+}
 
 // Apple extension stubs
 void glGenFencesAPPLE(GLsizei n, GLuint *f)          { for(int i=0;i<n;i++) f[i]=0; }
