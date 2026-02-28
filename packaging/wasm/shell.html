@@ -218,6 +218,7 @@
     <div id="toolbar">
       <button class="btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
       <button class="btn" id="btn-mute" onclick="toggleMute()">🔊 Unmute</button>
+      <button class="btn on" id="btn-fence" onclick="toggleFences()">✓ Fences</button>
     </div>
   </div>
 
@@ -263,6 +264,7 @@
        cannot accidentally merge it with the Emscripten module loader script. -->
   <script>
     var _muted = false;
+    var _fenceEnabled = true;
 
     var Module = {
       canvas: document.getElementById('canvas'),
@@ -356,6 +358,21 @@
         }
       } catch (e) { /* ignore */ }
       if (btn) btn.textContent = _muted ? '🔇 Muted' : '🔊 Unmute';
+    }
+
+    function toggleFences() {
+      _fenceEnabled = !_fenceEnabled;
+      var btn = document.getElementById('btn-fence');
+      try {
+        Module.ccall('Nanosaur2_SetFenceCollisionsEnabled', null, ['number'],
+                     [_fenceEnabled ? 1 : 0]);
+      } catch (e) {
+        console.warn('Module not ready yet:', e);
+      }
+      if (btn) {
+        btn.textContent = _fenceEnabled ? '✓ Fences' : '✗ No Fences';
+        btn.className   = 'btn' + (_fenceEnabled ? ' on' : ' danger');
+      }
     }
   </script>
 
