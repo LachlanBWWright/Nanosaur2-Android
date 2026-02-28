@@ -144,6 +144,7 @@ extern "C" {
 #undef glDrawElements
 #undef glDrawArrays
 #undef glHint
+#undef glIsEnabled
 
 // ── Compatibility function declarations ──────────────────────────────────────
 
@@ -220,6 +221,7 @@ void glGetDoublev(GLenum pname, GLdouble *data);
 // Stubs (no-ops or handled specially)
 void glPolygonMode(GLenum face, GLenum mode);
 void glHint(GLenum target, GLenum mode);
+GLboolean glIsEnabled(GLenum cap);
 void glPushAttrib(GLbitfield mask);
 void glPopAttrib(void);
 void glDrawBuffer(GLenum buf);

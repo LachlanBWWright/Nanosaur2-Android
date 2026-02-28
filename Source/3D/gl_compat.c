@@ -40,6 +40,7 @@ extern void emscripten_glGetIntegerv(GLenum pname, GLint *data);
 extern void emscripten_glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices);
 extern void emscripten_glDrawArrays(GLenum mode, GLint first, GLsizei count);
 extern void emscripten_glHint(GLenum target, GLenum mode);
+extern GLboolean emscripten_glIsEnabled(GLenum cap);
 
 // ── 4×4 float matrix ─────────────────────────────────────────────────────────
 typedef struct { float m[16]; } Mat4;
@@ -997,6 +998,24 @@ void glHint(GLenum target, GLenum mode) {
         emscripten_glHint(target, mode);
     }
     // All other hints (GL_FOG_HINT, etc.) are no-ops in WebGL
+}
+
+// glIsEnabled — return tracked state for emulated caps; pass through for real ones.
+// Without this, OGL_PushState() gets wrong values for GL_FOG and GL_NORMALIZE.
+GLboolean glIsEnabled(GLenum cap) {
+    switch (cap) {
+        case GL_LIGHTING:       return s_lighting_enabled ? GL_TRUE : GL_FALSE;
+        case GL_FOG:            return s_fog_enabled      ? GL_TRUE : GL_FALSE;
+        case GL_ALPHA_TEST:     return s_alpha_test_enabled ? GL_TRUE : GL_FALSE;
+        case GL_NORMALIZE:      return GL_FALSE;  // normalize is always handled in shader
+        case GL_RESCALE_NORMAL: return GL_FALSE;
+        case GL_COLOR_MATERIAL: return GL_FALSE;
+        case GL_TEXTURE_2D:     return GL_FALSE;  // not tracked per-unit; state inferred from bindings
+        case GL_TEXTURE_GEN_S:  return s_texgen_s ? GL_TRUE : GL_FALSE;
+        case GL_TEXTURE_GEN_T:  return s_texgen_t ? GL_TRUE : GL_FALSE;
+        default:
+            return emscripten_glIsEnabled(cap);
+    }
 }
 
 // Apple extension stubs
