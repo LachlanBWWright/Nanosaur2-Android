@@ -367,6 +367,7 @@ if(EMSCRIPTEN)
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.html"
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.js"
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.wasm"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.data"
 			"${CMAKE_SOURCE_DIR}/dist/wasm/"
 		# Use the Emscripten-generated HTML (with {{{ SCRIPT }}} properly
 		# substituted) as the index page — NOT the raw shell.html template.

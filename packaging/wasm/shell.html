@@ -283,7 +283,29 @@
         var tb = document.getElementById('toolbar');
         if (tb) tb.style.display = 'flex';
       },
+
+      // Display fatal errors in the loading card instead of silently failing
+      onAbort: function(what) {
+        var lbl = document.getElementById('status-text');
+        if (lbl) lbl.textContent = 'Fatal error: ' + what;
+        var bar = document.getElementById('progress-bar');
+        if (bar) bar.style.display = 'none';
+      },
     };
+
+    // ── Browser compatibility check ──────────────────────────────────────
+    (function() {
+      var lbl = document.getElementById('status-text');
+      if (typeof WebAssembly === 'undefined') {
+        if (lbl) lbl.textContent = 'Your browser does not support WebAssembly.';
+        return;
+      }
+      var cv = document.createElement('canvas');
+      var gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+      if (!gl) {
+        if (lbl) lbl.textContent = 'Your browser does not support WebGL.';
+      }
+    })();
 
     // ── UI helpers ────────────────────────────────────────
 
