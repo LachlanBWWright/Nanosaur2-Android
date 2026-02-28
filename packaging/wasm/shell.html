@@ -213,6 +213,17 @@
         <span>Click the canvas to capture the mouse. Press <kbd>Escape</kbd> to release it. Use the Fullscreen button for the best experience.</span>
       </div>
     </div>
+
+    <div class="info-section">
+      <h3>URL Parameters</h3>
+      <div class="info-row"><label><code>?level=N</code></label> <span>Skip to level N (0–8)</span></div>
+    </div>
+
+    <div class="info-section">
+      <h3>JavaScript API (Console)</h3>
+      <div class="info-row"><label>Fence collisions</label> <span><code>Module.ccall('Nanosaur2_SetFenceCollisionsEnabled', null, ['number'], [0])</code></span></div>
+      <div class="info-row"><label>Current level</label> <span><code>Module.ccall('Nanosaur2_GetCurrentLevel', 'number')</code></span></div>
+    </div>
   </div>
 
   <div id="footer">
