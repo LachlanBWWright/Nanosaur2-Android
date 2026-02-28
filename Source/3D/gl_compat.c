@@ -637,6 +637,7 @@ void glEnable(GLenum cap) {
         case GL_NORMALIZE:   break;  // handled by per-vertex normalize in shader
         case GL_RESCALE_NORMAL: break;  // not supported in WebGL; normalize handled in shader
         case GL_COLOR_MATERIAL: break;  // silently ignore
+        case GL_TEXTURE_2D:  break;  // not valid in GLES2; texture state is inferred from bindings
         default:
             // Pass through to GLES2
             {
@@ -657,6 +658,7 @@ void glDisable(GLenum cap) {
         case GL_NORMALIZE:   break;
         case GL_RESCALE_NORMAL: break;  // not supported in WebGL
         case GL_COLOR_MATERIAL: break;
+        case GL_TEXTURE_2D:  break;  // not valid in GLES2
         default:
             {
                 emscripten_glDisable(cap);
