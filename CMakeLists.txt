@@ -337,9 +337,13 @@ if(EMSCRIPTEN)
 		# Allow the heap to grow as needed (game allocates significant memory)
 		"-s ALLOW_MEMORY_GROWTH=1"
 		"-s MAXIMUM_MEMORY=512mb"
-		# Export the C functions marked EMSCRIPTEN_KEEPALIVE
+		# Full OpenGL ES 2.0 emulation — provides clean GLES2 functions
+		# without the JS-side hooks that LEGACY_GL_EMULATION installs.
+		# Our custom compat layer (gl_compat.c) handles legacy GL translation.
+		"-s FULL_ES2=1"
+		# Export the C functions callable from JavaScript
 		"-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']"
-		"-s EXPORTED_FUNCTIONS=['_main']"
+		"-s EXPORTED_FUNCTIONS=['_main','_Nanosaur2_SetFenceCollisionsEnabled','_Nanosaur2_GetFenceCollisionsEnabled','_Nanosaur2_GetCurrentLevel','_Nanosaur2_SetTerrainOverridePath']"
 		# Embed the game data (Data/ directory) into the wasm bundle
 		"--preload-file ${GAME_DATADIR}@/Data"
 		# Use requestAnimationFrame for the main loop (vsync, battery-efficient)
@@ -363,9 +367,12 @@ if(EMSCRIPTEN)
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.html"
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.js"
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.wasm"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.data"
 			"${CMAKE_SOURCE_DIR}/dist/wasm/"
+		# Use the Emscripten-generated HTML (with {{{ SCRIPT }}} properly
+		# substituted) as the index page — NOT the raw shell.html template.
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			"${CMAKE_SOURCE_DIR}/packaging/wasm/shell.html"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.html"
 			"${CMAKE_SOURCE_DIR}/dist/wasm/index.html"
 		COMMENT "Copying WebAssembly build outputs to dist/wasm/"
 	)

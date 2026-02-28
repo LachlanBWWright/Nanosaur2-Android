@@ -104,31 +104,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {submodules: 'recursive'}
-      - name: Install Emscripten SDK
+
+      - name: Cache Emscripten SDK
+        id: cache-emsdk
+        uses: actions/cache@v4
+        with:
+          path: .emsdk
+          key: emsdk-${{ runner.os }}-${{ runner.arch }}-v1
+          restore-keys: emsdk-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install Emscripten
         run: |
-          git clone https://github.com/emscripten-core/emsdk.git /opt/emsdk
-          /opt/emsdk/emsdk install latest
-          /opt/emsdk/emsdk activate latest
+          if [ ! -f .emsdk/emsdk ]; then
+            git clone --depth=1 https://github.com/emscripten-core/emsdk.git .emsdk
+            .emsdk/emsdk install latest
+          fi
+          .emsdk/emsdk activate latest
+          source .emsdk/emsdk_env.sh
+          echo "EMSDK=$EMSDK" >> "$GITHUB_ENV"
+          echo "EM_CONFIG=$EM_CONFIG" >> "$GITHUB_ENV"
+          echo "EM_CACHE=$EM_CACHE" >> "$GITHUB_ENV"
+          echo "$EMSDK" >> "$GITHUB_PATH"
+          echo "$EMSDK/upstream/emscripten" >> "$GITHUB_PATH"
+          echo "$EMSDK/upstream/bin" >> "$GITHUB_PATH"
+          for d in "$EMSDK/node/"*/bin; do [ -d "$d" ] && echo "$d" >> "$GITHUB_PATH"; done
+
       - name: Get artifact name
-        run: |
-          source /opt/emsdk/emsdk_env.sh
-          echo "ARTIFACT_NAME=$(python3 build.py --print-artifact-name --wasm)" >> $GITHUB_ENV
-      - name: Download SDL source
-        run: |
-          source /opt/emsdk/emsdk_env.sh
-          python3 build.py --dependencies --wasm
-      - name: Configure (emcmake)
-        run: |
-          source /opt/emsdk/emsdk_env.sh
-          python3 build.py --configure --wasm
-      - name: Build (emmake)
-        run: |
-          source /opt/emsdk/emsdk_env.sh
-          python3 build.py --build --wasm
-      - name: Package
-        run: |
-          source /opt/emsdk/emsdk_env.sh
-          python3 build.py --package --wasm
+        run: echo "ARTIFACT_NAME=$(python3 build.py --print-artifact-name --wasm)" >> $GITHUB_ENV
+      - run: python3 build.py --dependencies --wasm
+      - run: python3 build.py --configure --wasm
+      - run: python3 build.py --build --wasm
+      - run: python3 build.py --package --wasm
       - uses: actions/upload-artifact@v4
         with:
           name: ${{env.ARTIFACT_NAME}}

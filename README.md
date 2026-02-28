@@ -6,6 +6,8 @@ This is a port of Pangea Software’s 2004 game **Nanosaur II** to modern operat
 
 **Download the game for macOS, Windows and Linux here:** https://github.com/jorio/Nanosaur2/releases
 
+**Play in your browser (WebAssembly):** https://lachlanbwwright.github.io/Nanosaur2-Android/
+
 Nanosaur II: Hatchling is a continuation of the original [Nanosaur](https://github.com/jorio/Nanosaur) storyline, only this time you get to fly a pterodactyl who’s loaded with hi-tech weaponry. In addition to the three level adventure mode where you blast enemy dinos and save eggs, there are also six two-player levels including racing, capture-the-flag, and battle.
 
 This is a port of the original Mac version of the game to modern operating systems, made under permission from Pangea Software, Inc.

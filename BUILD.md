@@ -73,3 +73,48 @@ If you want to build the game **manually** instead, the rest of this document de
     ```
     If you'd like to enable runtime sanitizers, append `-DSANITIZE=1` to the **first** `cmake` call above.
 1. The game gets built in `build/Nanosaur2`. Enjoy!
+
+## How to build the WebAssembly version
+
+### The easy way: build.py
+
+Install [Emscripten](https://emscripten.org/docs/getting_started/downloads.html), activate it, and run:
+
+```
+python3 build.py --wasm
+```
+
+The WASM bundle will be produced in `dist/Nanosaur2-<version>-wasm.zip`. Extract and serve from a web server.
+
+### Manual build
+
+1. Install the prerequisites:
+    - [Emscripten SDK (emsdk)](https://emscripten.org/docs/getting_started/downloads.html) and activate it
+    - CMake 3.21+
+1. Clone the repo **recursively**:
+    ```
+    git clone --recurse-submodules https://github.com/jorio/Nanosaur2
+    cd Nanosaur2
+    ```
+1. Build SDL3 for Emscripten and the game:
+    ```
+    python3 build.py --wasm --dependencies
+    python3 build.py --wasm --configure
+    python3 build.py --wasm --build
+    ```
+1. The output is `build-wasm/Nanosaur2.html` (plus `.js`, `.wasm`, `.data`). Serve these files from a web server to play.
+
+## GitHub Pages (live WASM demo)
+
+The CI/CD pipeline automatically builds and deploys the WebAssembly version to GitHub Pages whenever a commit is pushed to the `master` branch. The workflow is defined in `.github/workflows/gh-pages.yml`.
+
+To enable GitHub Pages in your fork:
+1. Go to **Settings → Pages** in your repository.
+2. Set **Source** to **GitHub Actions**.
+3. Push a commit to `master` — the `Deploy WebAssembly to GitHub Pages` workflow will run and your game will be live at `https://<your-username>.github.io/<repo-name>/`.
+
+The deployed page provides:
+- A loading screen with progress indicator
+- The game canvas (WebGL)
+- Fullscreen and mute controls
+- URL-param support: `?level=N` to skip to a specific level

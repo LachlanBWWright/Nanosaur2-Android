@@ -15,3 +15,7 @@ dist/
 __pycache__/
 *.pyc
 extern/SDL/
+
+# Emscripten / GitHub Pages
+.emsdk/
+_site/
