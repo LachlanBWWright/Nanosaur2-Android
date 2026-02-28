@@ -288,9 +288,10 @@
     function toggleMute() {
       _muted = !_muted;
       var btn = document.getElementById('btn-mute');
-      // Emscripten SDL audio can be suspended via the AudioContext
+      // Emscripten exposes the AudioContext under Module.SDL2 (even for SDL3 builds)
       try {
-        var ctx = Module.SDL2 && Module.SDL2.audioContext;
+        var ctx = (Module.SDL3 && Module.SDL3.audioContext)
+               || (Module.SDL2 && Module.SDL2.audioContext);
         if (ctx) {
           if (_muted) ctx.suspend(); else ctx.resume();
         }
