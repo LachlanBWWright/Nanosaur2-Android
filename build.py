@@ -527,6 +527,11 @@ class EmscriptenProject(Project):
         else:
             die(f"Emscripten-generated HTML not found: {generated_html}")
 
+        # Copy the logo so the loading page displays correctly
+        logo = f"{root_dir}/docs/logo.png"
+        if os.path.exists(logo):
+            shutil.copy(logo, appdir)
+
         rm_if_exists(self.get_artifact_path())
         zipdir(self.get_artifact_path(), appdir, f"{game_name}-{game_ver}-wasm")
 
