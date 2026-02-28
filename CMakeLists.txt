@@ -364,8 +364,10 @@ if(EMSCRIPTEN)
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.js"
 			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.wasm"
 			"${CMAKE_SOURCE_DIR}/dist/wasm/"
+		# Use the Emscripten-generated HTML (with {{{ SCRIPT }}} properly
+		# substituted) as the index page — NOT the raw shell.html template.
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			"${CMAKE_SOURCE_DIR}/packaging/wasm/shell.html"
+			"$<TARGET_FILE_DIR:${GAME_TARGET}>/${GAME_TARGET}.html"
 			"${CMAKE_SOURCE_DIR}/dist/wasm/index.html"
 		COMMENT "Copying WebAssembly build outputs to dist/wasm/"
 	)
