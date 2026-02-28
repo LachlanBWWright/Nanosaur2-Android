@@ -322,7 +322,7 @@
     function toggleMute() {
       _muted = !_muted;
       var btn = document.getElementById('btn-mute');
-      // Emscripten exposes the AudioContext under Module.SDL2 (even for SDL3 builds)
+      // Try SDL3 namespace first, fall back to SDL2 (Emscripten may use either)
       try {
         var ctx = (Module.SDL3 && Module.SDL3.audioContext)
                || (Module.SDL2 && Module.SDL2.audioContext);

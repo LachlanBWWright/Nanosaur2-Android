@@ -55,11 +55,12 @@ jobs:
           for d in "$EMSDK/node/"*/bin; do [ -d "$d" ] && echo "$d" >> "$GITHUB_PATH"; done
 
       # Cache SDL3 source to speed up subsequent builds
+      # Note: Update the version in the cache key when sdl_ver changes in build.py
       - name: Cache SDL3 source (WASM build)
         uses: actions/cache@v4
         with:
           path: extern/SDL
-          key: sdl3-wasm-3.2.8-${{ runner.arch }}
+          key: sdl3-wasm-${{ hashFiles('build.py') }}-${{ runner.arch }}
 
       # Build WebAssembly with Emscripten
       - name: Download SDL3 source
