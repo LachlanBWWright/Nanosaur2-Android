@@ -54,6 +54,13 @@ jobs:
           echo "$EMSDK/upstream/bin" >> "$GITHUB_PATH"
           for d in "$EMSDK/node/"*/bin; do [ -d "$d" ] && echo "$d" >> "$GITHUB_PATH"; done
 
+      # Cache SDL3 source to speed up subsequent builds
+      - name: Cache SDL3 source (WASM build)
+        uses: actions/cache@v4
+        with:
+          path: extern/SDL
+          key: sdl3-wasm-3.2.8-${{ runner.arch }}
+
       # Build WebAssembly with Emscripten
       - name: Download SDL3 source
         run: python3 build.py --wasm --dependencies
